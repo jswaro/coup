@@ -52,8 +52,7 @@ A contestable event is a statement of fact that can be disputed, such as an atte
 another. Another player may dispute the fact that the original player had the role necessary to perform the action.
 A counter can result in another contestable event, but only contestable in terms of possession rather than counter.
 
-A counter can only be challenged, but a declaration can be countered or challenged. All contestable events fall into
-one of three events: CounterEvent, ChallengeEvent, and DeclarationEvent.
+A counter can only be challenged, but a declaration can be countered or challenged. 
 '''
 
 class Influence(object):

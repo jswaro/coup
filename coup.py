@@ -26,8 +26,35 @@ class GamePermissionError(CoupException):
 class GameInvalidOperation(CoupException):
     pass
 
-
 valid_player_actions = ["income", "foreign_aid", "coup", "tax", "steal", "assassinate", "exchange"]
+
+'''
+There are several different types of events. There are contestable events which occur when a player
+makes a decision that can be contested by another player. There are incontestable events that cannot be
+contested, only resolved.
+
+Contestable events require resolution from every player, whether it is simply an accept or contest of the statement.
+
+Interrogative events require resolution from only one player and are typically used to resolve a single decision.
+
+Contestable events are limited the originating player, and the contesting player.
+
+Countering events involve all players, but only one player can respond.
+
+Examples:
+
+An interrogative event is a question to a specific player, such as what action they may want to take this turn.
+
+An incontestable event is a statement of fact that cannot be disputed, such as a coup. These actions are resolved
+without any input from the other entities.
+
+A contestable event is a statement of fact that can be disputed, such as an attempt of theft by one player against
+another. Another player may dispute the fact that the original player had the role necessary to perform the action.
+A counter can result in another contestable event, but only contestable in terms of possession rather than counter.
+
+A counter can only be challenged, but a declaration can be countered or challenged. All contestable events fall into
+one of three events: CounterEvent, ChallengeEvent, and DeclarationEvent.
+'''
 
 class Influence(object):
     def __init__(self, name, action, counteraction):
@@ -57,7 +84,7 @@ assassin = Influence("Assassin", "Assassinate: target player loses one influence
 
 
 class Game(object):
-    def __init__(self, game_creator, name, password, is_expansion=False):
+    def __init__(self, instance, game_creator, name, password, is_expansion=False):
         self.deck = list()
         self.name = name
         self.password = password
@@ -76,6 +103,15 @@ class Game(object):
         self.player_order = list()
 
         self.current_player = 0
+
+        self.events = list()
+
+        self.stack = list()
+
+        self.messages = list()
+        self.messages_to_send = list()
+
+        self.instance = instance
 
     def add_player(self, player, password):
         if ((password is not None and password != self.password) or
@@ -111,7 +147,7 @@ class Game(object):
             raise GameInvalidOperation("Not enough players to start yet")
 
         # make a random player the first player
-        self.current_player = random.randint(0, len(self.players))
+        self.current_player = random.randint(0, len(self.players) - 1)
 
         # create the deck
         self.populate_deck()
@@ -132,6 +168,20 @@ class Game(object):
 
         self.player_order = self.players.keys()
 
+        turn_order = list()
+        for x in xrange(0, len(self.players)):
+            turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
+
+        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
+
+        self.add_message_to_queue(self.current_player_name(), "You are the first player. "
+                                                                    "Please choose an action.")
+
+        self.process_outbound_messages()
+
+    def current_player_name(self):
+        return self.player_order[self.current_player]
+
     def long_name(self):
         if self.password is None:
             return self.name
@@ -146,6 +196,46 @@ class Game(object):
 
     def my_turn(self, user):
         return user == self.player_order[self.current_player]
+
+    def advance_to_next_player(self):
+        self.current_player = (self.current_player + 1) % len(self.players)
+
+    def progress_to_next_turn(self):
+        alive_players = [x for x in self.player_order if not self.players[x].dead()]
+
+        if len(alive_players) == 1:
+            for name in self.player_order:
+                self.add_message_to_queue(name, "Player {0} has won!".format(alive_players[0]))
+        else:
+            self.advance_to_next_player()
+            while self.players[self.current_player_name()].dead():
+                print "{0} is dead... skipping".format(self.current_player_name())
+                self.advance_to_next_player()
+
+            self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
+
+    def broadcast_message(self, message, alive_only=False):
+        for name in self.player_order:
+            if (alive_only and not self.players[name].dead()) or not alive_only:
+                self.add_message_to_queue(name, message)
+            else:
+                print "skipping {0} as they are dead".format(name)
+
+    def add_message_to_queue(self, user, message):
+        self.messages_to_send.append((user, message))
+
+    def process_outbound_messages(self):
+        while len(self.messages_to_send) > 0:
+            user, message = self.messages_to_send.pop(0)
+
+            print "[{0}] {1}".format(user, message)
+
+    def face_up_cards(self):
+        face_up = list()
+        for name in self.player_order:
+            face_up.extend(self.players[name].face_up_cards())
+
+        return ", ".join(face_up)
 
 
 class Player(object):
@@ -166,6 +256,9 @@ class Player(object):
         return [x.short_description() for x in self.available_influence] + \
                [x.short_description() for x in self.revealed_influence]
 
+    def face_up_cards(self):
+        return list(self.revealed_influence)
+
     def influence_remaining(self):
         return len(self.available_influence)
 
@@ -174,25 +267,17 @@ class Player(object):
             t = self.available_influence.pop()
             self.revealed_influence.append(t)
 
-        # TODO: generate event... hes dead
-
     def cash(self):
         return self.coins
 
     def dead(self):
         return len(self.available_influence) == 0
 
-    def message_player(self, message):
-        print message
-
     def modify_cash(self, amount):
         if amount + self.coins < 0:
             raise GameInvalidOperation("You do not have enough coins to perform that action")
 
         self.coins += amount
-
-    def status(self):
-        return ""
 
 
 class Instance(object):
@@ -203,7 +288,7 @@ class Instance(object):
         if not self.game_exists(name):
             self.games[name] = game
         else:
-            raise RuntimeWarning("A game with this name already exists")
+            raise GameInvalidOperation("A game with this name already exists")
 
     def game_exists(self, name):
         return name in self.games
@@ -213,6 +298,14 @@ class Instance(object):
             raise GameNotFoundException("Game '{0}' not found".format(name))
 
         return self.games[name]
+
+    def find_user_game(self, name):
+        for game_name in self.games.keys():
+            if name in self.games[game_name].players:
+                return self.games[game_name]
+
+        raise GameNotFoundException("User {0} does not appear to be in a game".format(name))
+
 
     def print_games(self):
         if len(self.games.keys()) == 0:
@@ -234,10 +327,10 @@ def parse_base_create(instance, user, arguments):
     if len(arguments) >= 2:
         password = arguments[1]
 
-    game = Game(user, name, password)
+    game = Game(instance, user, name, password)
     instance.add_game(name, game)
 
-    player = Player(name)
+    player = Player(user)
     game.add_player(player, password)
 
     return "Game '{0}' created".format(name)
@@ -273,7 +366,7 @@ def parse_base_join(instance, user, arguments):
     player = Player(user)
     game.add_player(player, password)
 
-    return "Joined game '{0}'".format(game_name)
+    return "Joined game '{0}', players: {1}".format(game_name, ", ".join(game.players.keys()))
 
 def parse_base_forfeit(instance, user, arguments):
     return
@@ -301,7 +394,7 @@ def parse_base_help(instance, user, arguments):
         "  do assassinate <player>",
         "  do exchange",
         "  counter <player> with <role>",
-        "  challenge",
+        "  challenge <player>",
         "  accept",
         "  status"
     ])
@@ -326,11 +419,19 @@ def parse_game_do(instance, game, user, arguments):
         return GameInvalidOperation("You have picked an invalid option. "
                                     "Please choose from {0}.".format(", ".join(valid_player_actions)))
 
-    if action is "income":
+    print "'{0}' is the action".format(action)
+
+    if action == "income":
         player.modify_cash(1)
-    elif action is "foreign_aid":
+
+        game.broadcast_message("{0} took income. {0} has {1} coins.".format(user, player.cash()))
+
+        game.progress_to_next_turn()
+    elif action == "foreign_aid":
+
+
         pass
-    elif action is "coup":
+    elif action == "coup":
         if len(arguments) < 2:
             raise InvalidCLICommand("You need to specify a target for the coup.")
 
@@ -347,24 +448,31 @@ def parse_game_do(instance, game, user, arguments):
         player.modify_cash(-7)
         if target_player.influence_remaining() == 1:
             target_player.kill()
-            # generate event for dead player
+
+            game.broadcast_message("{0} has lost all their influence. They are out of the game.")
         else:
             # generate decision event
             # TODO: need to add an event for losing influence
-    elif action is "tax":
+            pass
+
+        game.broadcast_message("The list of current face-up cards are '{0}'.".format(game.face_up_cards()))
+        game.progress_to_next_turn()
+    elif action == "tax":
         # TODO: generate contestable event
         pass
-    elif action is "steal":
+    elif action == "steal":
         # TODO: generate contestable event
         pass
-    elif action is "exchange":
+    elif action == "exchange":
         # TODO: generate contestable event
         pass
-    elif action is "assassinate":
+    elif action == "assassinate":
         # TODO: generate contestable evnet
         pass
     else:
         raise CoupException("Not sure how we got here, but you picked an invalid option")
+
+    game.process_outbound_messages()
 
 
 def parse_game_challenge(instance, game, user, arguments):
@@ -434,7 +542,11 @@ class CoupCLIParser(object):
         if game is None:
             raise GameInvalidOperation("{0} is not part of any game".format(user))
 
-        return self.recognized_game_actions[action](self.instance, game, user, arguments)
+        ret = self.recognized_game_actions[action](self.instance, game, user, arguments)
+
+        game.process_outbound_messages()
+
+        return ret
 
 
 '''
@@ -526,7 +638,7 @@ def unittest():
     # add player
     parser.parse_input('john', 'join jim')
     game = instance.find_game_by_name('jim')
-    assert 'jim' in game.players.keys() and 'john' in game.players.keys()
+    assert 'jswaro' in game.players.keys() and 'john' in game.players.keys()
 
     # test not allowed to start
     ret = parser.parse_input('john', 'start jim')
@@ -564,6 +676,9 @@ def unittest():
 
     ret = parser.parse_input('jim', 'help')
     assert 'Global commands' in ret
+
+    ret = parser.parse_input('jswaro', 'do income')
+
 
 
 

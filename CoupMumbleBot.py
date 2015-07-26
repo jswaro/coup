@@ -7,8 +7,6 @@ mumble_path = os.getcwd() + os.sep + 'mumble-bots'
 if not os.path.exists(mumble_path):
 	git.Git().clone('git://github.com/hansl/mumble-bots.git')
 
-		
-
 sys.path.append(mumble_path)
 
 from optparse import OptionParser
@@ -27,8 +25,9 @@ class MumbleBot(mumble.Bot):
 	def on_text_message(self, from_user, to_users, to_channels, tree_ids, message):
 
 		if self.state.user in to_users and len(to_channels) == 0:
-			self.parser.parse_input(from_user, message)
-			#self.send_message(from_user, "Echo: " +message)
+			return_message = self.parser.parse_input(from_user, message)
+			if return_message is not None:
+				self.send_message(from_user, unicode(return_message))
 	
 
 '''

@@ -1,5 +1,7 @@
+import time
 import random
-
+import CoupMumbleBot
+import mumble
 __author__ = 'jswaro'
 
 
@@ -678,9 +680,6 @@ def unittest():
 
     ret = parser.parse_input('jswaro', 'do income')
 
-
-
-
 def main():
     """
     Main Loop
@@ -688,7 +687,18 @@ def main():
     instance = Instance()
     parser = CoupCLIParser(instance)
 
+    bot = CoupMumbleBot.MumbleBot("JimBot", parser)
+    bot.start(mumble.Server('Anbon.us'), 'JimBot')
+
+    while bot.is_connected:
+        try:	
+            time.sleep(5)
+        except KeyboardInterrupt:
+            bot.stop()
 
 
 
-unittest()
+
+main()
+
+#unittest()

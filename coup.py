@@ -385,7 +385,6 @@ def parse_base_help(instance, user, arguments):
         "  join <name> [password]",
         "  start <name>",
         "  forfeit",
-        "",
         "Game commands:",
         "  do income",
         "  do foreign_aid",

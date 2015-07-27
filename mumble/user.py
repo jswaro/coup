@@ -67,3 +67,5 @@ class User(object):
       # The callback will set it automatically.
     self.bot.connection.ask_stats_for_user(self.session)
 
+  def __str__(self):
+    return "<User: {}>".format(self.name)

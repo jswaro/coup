@@ -261,3 +261,6 @@ class Connection(threading.Thread):
   def run(self):
     self._loop()
     self.socket.close()
+
+  def __str__(self):
+    return "<Connection: {}>".format(self.server)

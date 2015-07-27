@@ -1,5 +1,4 @@
 #!/bin/python
-# 
 
 import logger
 import platform
@@ -12,6 +11,9 @@ class Channel(object):
     self.parent = parent
     self.position = position
     pass
+
+  def __str__(self):
+    return "<Channel {} ({})>".format(self.name, self.id)
 
 class ChannelTree(object):
   def __init__(self, root):

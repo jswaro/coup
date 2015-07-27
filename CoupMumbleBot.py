@@ -21,7 +21,7 @@ class MumbleBot(mumble.Bot):
 			self.send_message(to_user, line.encode('ascii'))
 	
 	def on_text_message(self, from_user, to_users, to_channels, tree_ids, message):
-		print message
+		print "from_user:{}, to_users:{}, to_channels:{}, tree_ids:{}, message:{}".format(from_user, to_users, to_channels, tree_ids, message)
 		if self.state.user in to_users and len(to_channels) == 0:
 			return_message = self.parser.parse_input(from_user.name, message)
 

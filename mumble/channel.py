@@ -58,3 +58,6 @@ class Channel(object):
       chan = self.bot.get_channel_by_id(l)
       assert chan
       self.links[l] = chan
+
+  def __str__(self):
+    return "<Channel id: {}>".format(self.id)

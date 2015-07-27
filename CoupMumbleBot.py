@@ -1,21 +1,10 @@
-#!/bin/python
-import os
-import sys
-import git
-
-mumble_path = os.getcwd() + os.sep + 'mumble-bots'
-if not os.path.exists(mumble_path):
-	git.Git().clone('git://github.com/hansl/mumble-bots.git')
-
-sys.path.append(mumble_path)
-
 from optparse import OptionParser
 import logging
 import threading
 import time
-  
+
 import mumble
-  
+
 class MumbleBot(mumble.Bot):
 	def __init__(self, name, parser):
 		mumble.Bot.__init__(self, name)

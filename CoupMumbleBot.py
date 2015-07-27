@@ -34,7 +34,7 @@ class MumbleBot(mumble.Bot):
 	def on_text_message(self, from_user, to_users, to_channels, tree_ids, message):
 		print message
 		if self.state.user in to_users and len(to_channels) == 0:
-			return_message = self.parser.parse_input(from_user, message)
+			return_message = self.parser.parse_input(from_user.name, message)
 
 			try:
 				if return_message is not None and return_message != "":

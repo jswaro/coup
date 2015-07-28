@@ -28,8 +28,6 @@ class GamePermissionError(CoupException):
 class GameInvalidOperation(CoupException):
     pass
 
-valid_player_actions = ["income", "foreign_aid", "coup", "tax", "steal", "assassinate", "exchange"]
-
 '''
 There are several different types of events. There are contestable events which occur when a player
 makes a decision that can be contested by another player. There are incontestable events that cannot be
@@ -57,11 +55,20 @@ A counter can result in another contestable event, but only contestable in terms
 A counter can only be challenged, but a declaration can be countered or challenged. 
 '''
 
-class Influence(object):
-    def __init__(self, name, action, counteraction):
+class Action(object):
+    def __init__(self, name, description, coins):
         self.name = name
-        self.action = action
-        self.counteraction = counteraction
+        self.description = description
+        self.coins = coins
+
+    def __str__(self):
+        return self.name
+
+class Influence(object):
+    def __init__(self, name, actions, counteractions):
+        self.name = name
+        self.actions = actions
+        self.counteractions = counteractions
 
     def description(self):
         return "Class: {0}\nAction: {1}\nCounter action: {2}\n".format(self.name, self.action, self.counteraction)
@@ -75,30 +82,42 @@ class Influence(object):
     def __str__(self):
         return self.name
 
+income = Action("Income", "Take 1 coin")
+foreign_aid = Action("Foreign Aid", "Take 2 coins")
+tax = Action("Tax", "Take 3 coins")
+steal = Action("Steal", "Take 2 coins from another player")
+assassinate = Action("Assassinate", "Pay 3 coins, choose player to lose influence")
+exchange2 = Action("Exchange", "Take 2 cards, return 2 cards to court deck")
+exchange1 = Action("Exchange", "Take 1 card, return 1 card to court deck")
+examine = Action("Examine", "Choose player; look at one card, may force Exchange")
+coup = Action("Coup", "Pay 7 coins, choose player to lose influence")
+convert = Action("Convert", "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve")
+embezzle = Action("Embezzle", "Take all coins from Treasury Reserve")
 
-contessa = Influence("Contessa", "None", "Blocks assassination")
-duke = Influence("Duke", "Tax: receive three coins from the treasury", "Blocks foreign aid")
-captain = Influence("Captain", "Steal: take two coins from another player", "Blocks stealing")
-ambassador = Influence("Ambassador", "Exchange: take two cards from the court deck "
-                                     "and exchange with any face down cards you possess", "Blocks stealing")
-assassin = Influence("Assassin", "Assassinate: target player loses one influence", "None")
-
+contessa = Influence("Contessa", actions=[], counteractions=[assassinate])
+duke = Influence("Duke", actions=[tax], counteractions=[foreign_aid])
+captain = Influence("Captain", actions=[steal], counteractions=[steal])
+ambassador = Influence("Ambassador", actions=[exchange2], counteractions=[steal])
+assassin = Influence("Assassin", actions=[assassinate], counteractions=[])
+inquisitor = Influence("Inquisitor", actions=[exchange1,examine], counteractions=[steal])
 
 class Game(object):
-    def __init__(self, instance, game_creator, name, password, is_expansion=False):
+    def __init__(self, instance, game_creator, name, password, use_inquisitor=False, use_treasury=False, final_guesing=False):
         self.deck = list()
         self.name = name
         self.password = password
         self.game_creator = game_creator
 
         self.court_deck = list()
-        self.treasury = 0
+        self.valid_player_actions = list()
+        if use_treasury:
+            self.treasury = 0
 
-        self.max_players = 6
-        if is_expansion:
-            self.max_players = 10
+        self.max_players = 10
 
-        self.expansion_enabled = is_expansion
+        self.use_inquisitor = use_inquisitor
+        self.use_treasury = use_treasury #Todo: To impliment
+        self.final_guessing = final_guessing #Todo: To impliment
 
         self.players = dict()
         self.player_order = list()
@@ -115,22 +134,26 @@ class Game(object):
         self.instance = instance
 
     def add_player(self, player, password):
-        if ((password is not None and password != self.password) or
-                (password is None and self.password is not None)):
+        if self.password is not None and password != self.password:
             raise GamePermissionError("Incorrect password. You may not join this game.")
         if player.name in self.players:
             raise GameInvalidOperation("Player {0} is already in the game".format(player.name))
 
         self.players[player.name] = player
 
-    def populate_deck(self):
+    def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]
-        if self.expansion_enabled:
-            cards.append(ambassador) # FIXME: needs to be inquisitor
+        self.valid_player_actions = [income, foreign_aid, coup]
+
+        if self.use_inquisitor:
+            cards.append(inquisitor)
         else:
             cards.append(ambassador)
 
-        for c in cards:
+        if use_treasury:
+            self.valid_player_actions.extend([embezzle, convert])
+
+        for card in cards:
             num_cards_each = 3
             if 6 < len(self.players) and len(self.players) <= 8:
                 num_cards_each = 4
@@ -138,7 +161,10 @@ class Game(object):
                 num_cards_each = 5
 
             for x in xrange(0, num_cards_each):
-                self.deck.append(c)
+                self.deck.append(card)
+
+            for action in card.actions:
+                self.valid_player_ations.append(action)
 
     def is_creator(self, user):
         return user == self.game_creator
@@ -151,7 +177,7 @@ class Game(object):
         self.current_player = random.randint(0, len(self.players) - 1)
 
         # create the deck
-        self.populate_deck()
+        self.populate_deck_and_actions()
 
         # shuffle the deck
         random.shuffle(self.deck)
@@ -188,6 +214,13 @@ class Game(object):
             return self.name
 
         return "{0} (private)".format(self.name)
+
+    def get_action_by_name(self, name):
+        for action in self.valid_player_actions:
+            if name == action.name:
+                return action
+        return GameInvalidOperation("You have picked an invalid option. "
+                                    "Please choose from {0}.".format(", ".join(self.valid_player_actions)))
 
     def find_player_by_name(self, name):
         if name not in self.players.keys():
@@ -238,6 +271,66 @@ class Game(object):
 
         return ", ".join(face_up)
 
+    def do_income(self, instance, user, arguments):
+        player.modify_cash(1)
+        self.broadcast_message("{0} took income. {0} has {1} coins.".format(user, player.cash()))
+        self.progress_to_next_turn()
+
+    def do_foreign_aid(self, instance, user, arguments):
+        pass #TODO
+
+    def do_tax(self, instance, user, arguments):
+        pass #TODO
+
+    def do_steal(self, instance, user, arguments):
+        pass #TODO
+
+    def do_assassinate(self, instance, user, arguments):
+        pass #TODO
+
+    def do_exchange2(self, instance, user, arguments):
+        pass #TODO
+
+    def do_exchange1(self, instance, user, arguments):
+        pass #TODO
+
+    def do_examine(self, instance, user, arguments):
+        pass #TODO
+
+    def do_coup(self, instance, user, arguments):
+        if len(arguments) < 2:
+            raise InvalidCLICommand("You need to specify a target for the coup.")
+
+        target = arguments[1]
+
+        target_player = game.find_player_by_name(target)
+
+        if player.cash() < 7:
+            raise GameInvalidOperation("You do not have enough coins to coup. Pick another action.")
+
+        if target_player.dead():
+            raise GameInvalidOperation("Your target is already dead. Shame on you. Pick another action.")
+
+        player.modify_cash(-7)
+        if target_player.influence_remaining() == 1:
+            target_player.kill()
+
+            game.broadcast_message("{0} has lost all their influence. They are out of the game.")
+        else:
+            # generate decision event
+            # TODO: need to add an event for losing influence
+            pass
+
+        game.broadcast_message("The list of current face-up cards are '{0}'.".format(game.face_up_cards()))
+        game.progress_to_next_turn()
+    def do_convert(self, instance, user, arguments):
+        pass #TODO
+
+    def do_embezzle(self, instance, user, arguments):
+        pass #TODO
+
+    def no_action(self, instance, user, arguments):
+        raise CoupException("Not sure how we got here, but you picked an invalid option")
 
 class Player(object):
     def __init__(self, name):
@@ -366,9 +459,9 @@ def parse_base_join(instance, user, arguments):
 
     player = Player(user)
     game.add_player(player, password)
-    
+
     game.broadcast_message("Game '{}', players ({}): {}".format(game_name, len(game.players), ", ".join(game.players.keys())))
-    
+
     return "Joined game '{}'".format(game_name, ", ".join(game.players.keys()))
 
 def parse_base_forfeit(instance, user, arguments):
@@ -410,69 +503,20 @@ def parse_game_do(instance, game, user, arguments):
     if not game.my_turn(user):
         raise GameInvalidOperation("It is not your turn yet.")
 
-    action = arguments[0]
+    action_text = arguments[0]
 
     player = game.find_player_by_name(user)
 
-    if player.cash() >= 10 and action != "coup":
-        raise GameInvalidOperation("You have 10 or more coins, you must coup!")
+    action = game.get_action_by_name(action_text)
 
-    if action not in valid_player_actions:
-        return GameInvalidOperation("You have picked an invalid option. "
-                                    "Please choose from {0}.".format(", ".join(valid_player_actions)))
+    if player.cash() >= 10 and action != coup:
+        raise GameInvalidOperation("You have 10 or more coins, you must coup!")
 
     print "'{0}' is the action".format(action)
 
-    if action == "income":
-        player.modify_cash(1)
+    func = getattr(game, "do_" + action.name, game.no_action)
 
-        game.broadcast_message("{0} took income. {0} has {1} coins.".format(user, player.cash()))
-
-        game.progress_to_next_turn()
-    elif action == "foreign_aid":
-
-
-        pass
-    elif action == "coup":
-        if len(arguments) < 2:
-            raise InvalidCLICommand("You need to specify a target for the coup.")
-
-        target = arguments[1]
-
-        target_player = game.find_player_by_name(target)
-
-        if player.cash() < 7:
-            raise GameInvalidOperation("You do not have enough coins to coup. Pick another action.")
-
-        if target_player.dead():
-            raise GameInvalidOperation("Your target is already dead. Shame on you. Pick another action.")
-
-        player.modify_cash(-7)
-        if target_player.influence_remaining() == 1:
-            target_player.kill()
-
-            game.broadcast_message("{0} has lost all their influence. They are out of the game.")
-        else:
-            # generate decision event
-            # TODO: need to add an event for losing influence
-            pass
-
-        game.broadcast_message("The list of current face-up cards are '{0}'.".format(game.face_up_cards()))
-        game.progress_to_next_turn()
-    elif action == "tax":
-        # TODO: generate contestable event
-        pass
-    elif action == "steal":
-        # TODO: generate contestable event
-        pass
-    elif action == "exchange":
-        # TODO: generate contestable event
-        pass
-    elif action == "assassinate":
-        # TODO: generate contestable evnet
-        pass
-    else:
-        raise CoupException("Not sure how we got here, but you picked an invalid option")
+    func(game, instance, user, arguments)
 
     game.process_outbound_messages()
 
@@ -688,8 +732,8 @@ def main():
     instance = Instance()
     parser = CoupCLIParser(instance)
 
-    bot = CoupMumbleBot.MumbleBot("JimBot", parser)
-    bot.start(mumble.Server('Anbon.us'), 'JimBot')
+    bot = CoupMumbleBot.MumbleBot(None, parser)
+    bot.start(mumble.Server('Anbon.us'), 'CoupBot' + str(random.randint(100,999)))
 
     while bot.is_connected:
         try:
@@ -698,8 +742,7 @@ def main():
             bot.stop()
 
 
-
-
-main()
+if __name__ == "__main__":
+    main()
 
 #unittest()

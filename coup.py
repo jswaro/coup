@@ -366,8 +366,10 @@ def parse_base_join(instance, user, arguments):
 
     player = Player(user)
     game.add_player(player, password)
-
-    return "Joined game '{0}', players: {1}".format(game_name, ", ".join(game.players.keys()))
+    
+    game.broadcast_message("Game '{}', players ({}): {}".format(game_name, len(game.players), ", ".join(game.players.keys())))
+    
+    return "Joined game '{}'".format(game_name, ", ".join(game.players.keys()))
 
 def parse_base_forfeit(instance, user, arguments):
     return
@@ -690,7 +692,7 @@ def main():
     bot.start(mumble.Server('Anbon.us'), 'JimBot')
 
     while bot.is_connected:
-        try:	
+        try:
             time.sleep(5)
         except KeyboardInterrupt:
             bot.stop()

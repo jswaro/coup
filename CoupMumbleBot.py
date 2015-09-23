@@ -21,19 +21,28 @@ class MumbleBot(mumble.Bot):
         for line in message.split('\n'):
             self.send_message(to_user, line.encode('ascii'))
 
-    def on_text_message(self, from_user, to_users, to_channels, tree_ids, message):
-        print "from_user:{}, to_users:{}, to_channels:{}, tree_ids:{}, message:{}".format(from_user, to_users,
-                                                                                          to_channels, tree_ids,
-                                                                                          message)
-        if self.state.user in to_users and len(to_channels) == 0:
-            return_message = self.parser.parse_input(from_user.name, message)
+    def send_batch_message(self, users, message):
+        if message is not None and message != "":
+            for user in users:
+                try:
+                    self.send_simple_message(user, message)
+                except Exception as e:
+                    print e
+                    print '"', return_message, '"'
 
-            try:
-                if return_message is not None and return_message != "":
-                    self.send_simple_message(from_user.name, return_message)
-            except Exception as e:
-                print e
-                print '"', return_message, '"'
+    def on_text_message(self, from_user, to_users, to_channels, tree_ids, message):
+        template = "from_user:{}, to_users:{}, to_channels:{}, tree_ids:{}, message:{}"
+        print template.format(from_user, to_users, to_channels, tree_ids, message)
+
+        command_attempt = False
+        if self.state.user in to_users and len(to_channels) == 0:
+            command_attempt = True
+        elif message[0] == '/':
+            command_attempt = True
+            message = message[1:]
+
+        if command_attempt:
+            return_message = self.parser.parse_input(from_user.name, self.send_simple_message, message)
 
 
 '''

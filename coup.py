@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import random
 import CoupMumbleBot
@@ -253,7 +254,7 @@ class Game(object):
         else:
             self.advance_to_next_player()
             while self.players[self.current_player_name()].dead():
-                print "{0} is dead... skipping".format(self.current_player_name())
+                print("{0} is dead... skipping".format(self.current_player_name()))
                 self.advance_to_next_player()
 
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
@@ -263,16 +264,17 @@ class Game(object):
             if (alive_only and not self.players[name].dead()) or not alive_only:
                 self.add_message_to_queue(name, message)
             else:
-                print "skipping {0} as they are dead".format(name)
+                print("skipping {0} as they are dead".format(name))
 
     def add_message_to_queue(self, user, message):
         self.messages_to_send.append((user, message))
 
-    def process_outbound_messages(self):
+    def process_outbound_messages(self, msg_func):
         while len(self.messages_to_send) > 0:
             user, message = self.messages_to_send.pop(0)
 
-            print "[{0}] {1}".format(user, message)
+            print("[{0}] {1}".format(user, message))
+            msg_func(user, message)
 
     def face_up_cards(self):
         face_up = list()
@@ -529,7 +531,7 @@ def parse_game_do(instance, game, user, arguments):
     if player.cash() >= 10 and action != coup:
         raise GameInvalidOperation("You have 10 or more coins, you must coup!")
 
-    print "'{0}' is the action".format(action)
+    print("'{0}' is the action".format(action))
 
     func = getattr(game, "do_" + action.name, game.no_action)
 
@@ -568,7 +570,7 @@ class CoupCLIParser(object):
 
         self.instance = instance
 
-    def parse_input(self, user, line):
+    def parse_input(self, user, msg_func, line):
         arguments = line.rstrip().split()
 
         action = arguments[0]
@@ -579,11 +581,11 @@ class CoupCLIParser(object):
             if action in self.recognized_base_actions:
                 ret = self.parse_base_action(user, action, arguments[1:])
             elif action in self.recognized_game_actions:
-                ret = self.parse_game_action(user, action, arguments[1:])
+                ret = self.parse_game_action(user, action, msg_func, arguments[1:])
         except CoupException as e:
             ret = "Error: {0} ".format(e.message)
 
-        print "[{0}] {1}: {2}".format(user, line.rstrip(), ret)
+        print("[{0}] {1}: {2}".format(user, line.rstrip(), ret))
         return ret
 
     def parse_base_action(self, user, action, arguments):
@@ -595,7 +597,7 @@ class CoupCLIParser(object):
         """
         return self.recognized_base_actions[action](self.instance, user, arguments)
 
-    def parse_game_action(self, user, action, arguments):
+    def parse_game_action(self, user, action, msg_func, arguments):
         """
 
         :param user:
@@ -610,7 +612,7 @@ class CoupCLIParser(object):
 
         ret = self.recognized_game_actions[action](self.instance, game, user, arguments)
 
-        game.process_outbound_messages()
+        game.process_outbound_messages(msg_func)
 
         return ret
 
@@ -695,56 +697,56 @@ def unittest():
     assert instance.print_games() == ""
 
     # create jim game
-    parser.parse_input('jswaro', 'create jim')
+    parser.parse_input('jswaro', print, 'create jim')
     assert instance.print_games() == "jim"
 
     # test failure to start
-    ret = parser.parse_input('jswaro', 'start jim')
+    ret = parser.parse_input('jswaro', print, 'start jim')
     assert 'Error: Not enough players to start yet' in ret
 
     # add player
-    parser.parse_input('john', 'join jim')
+    parser.parse_input('john', print, 'join jim')
     game = instance.find_game_by_name('jim')
     assert 'jswaro' in game.players.keys() and 'john' in game.players.keys()
 
     # test not allowed to start
-    ret = parser.parse_input('john', 'start jim')
+    ret = parser.parse_input('john', print, 'start jim')
     assert 'Error: Only the owner of the game may start the game' in ret
 
     # test no game found
-    ret = parser.parse_input('jswaro', 'start blargh')
+    ret = parser.parse_input('jswaro', print, 'start blargh')
     assert "Error: Game 'blargh' not found" in ret
 
     # test malformed start
-    ret = parser.parse_input('jswaro', 'start')
+    ret = parser.parse_input('jswaro', print, 'start')
     assert 'Not enough arguments' in ret
 
     # test successful start
-    ret = parser.parse_input('jswaro', 'start jim')
+    ret = parser.parse_input('jswaro', print, 'start jim')
     assert "Game 'jim' started" in ret
 
     # test list
-    ret = parser.parse_input('jimbob', 'list')
+    ret = parser.parse_input('jimbob', print, 'list')
     assert 'jim' == ret
 
-    parser.parse_input('dood', 'create place')
-    ret = parser.parse_input('dood', 'list')
+    parser.parse_input('dood', print, 'create place')
+    ret = parser.parse_input('dood', print, 'list')
     assert 'jim' in ret and 'place' in ret
 
-    parser.parse_input('rawr', 'create roar roarmore')
-    ret = parser.parse_input('rawr', 'list')
+    parser.parse_input('rawr', print, 'create roar roarmore')
+    ret = parser.parse_input('rawr', print, 'list')
     assert 'roar (private)' in ret
 
-    ret = parser.parse_input('jim', 'join roar')
+    ret = parser.parse_input('jim', print, 'join roar')
     assert 'Error: Incorrect password. You may not join this game' in ret
 
-    ret = parser.parse_input('jim', 'join roar evenmore')
+    ret = parser.parse_input('jim', print, 'join roar evenmore')
     assert 'Error: Incorrect password. You may not join this game' in ret
 
-    ret = parser.parse_input('jim', 'help')
+    ret = parser.parse_input('jim', print, 'help')
     assert 'Global commands' in ret
 
-    ret = parser.parse_input('jswaro', 'do income')
+    ret = parser.parse_input('jswaro', print, 'do income')
 
 
 def main():
@@ -755,7 +757,7 @@ def main():
     parser = CoupCLIParser(instance)
 
     bot = CoupMumbleBot.MumbleBot(None, parser)
-    bot.start(mumble.Server('Anbon.us'), 'CoupBot' + str(random.randint(100, 999)))
+    bot.start(mumble.Server('murmur.mngamergeek.com'), 'CoupBot' + str(random.randint(100, 999)))
 
     while bot.is_connected:
         try:

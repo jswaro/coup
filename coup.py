@@ -1,11 +1,14 @@
 from __future__ import print_function
 import time
 import random
-import CoupMumbleBot
-import mumble
+import argparse
+import logging
+import irc_simple
+from secrets import channellist, botnick, botpass, server, usessl
 
 __author__ = 'jswaro'
 
+logging.basicConfig(filename='coupbot.log', level=logging.DEBUG)
 
 class CoupException(Exception):
     pass
@@ -58,6 +61,15 @@ A counter can result in another contestable event, but only contestable in terms
 A counter can only be challenged, but a declaration can be countered or challenged. 
 '''
 
+def completion(query_str, possible):
+    if query_str in possible:
+        return [query_str]
+    else:
+        found = []
+        for try_str in possible:
+            if try_str.startswith(query_str):
+                found.append(try_str)
+    return found
 
 class Action(object):
     def __init__(self, name, description):
@@ -103,6 +115,8 @@ convert = Action("Convert",
                  "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve")
 embezzle = Action("Embezzle", "Take all coins from Treasury Reserve")
 
+['income', 'foreign_aid', 'tax', 'steal', 'exchange', 'examine', 'coup', 'convert', 'embezzle']
+
 contessa = Influence("Contessa", actions=[], counteractions=[assassinate])
 duke = Influence("Duke", actions=[tax], counteractions=[foreign_aid])
 captain = Influence("Captain", actions=[steal], counteractions=[steal])
@@ -112,23 +126,22 @@ inquisitor = Influence("Inquisitor", actions=[exchange1, examine], counteraction
 
 
 class Game(object):
-    def __init__(self, instance, game_creator, name, password, use_inquisitor=False, use_treasury=False,
-                 final_guessing=False):
-        self.deck = list()
-        self.name = name
-        self.password = password
+    def __init__(self, instance, game_creator, parameters):
+        self.instance = instance
+        self.name = parameters.name
+        self.password = parameters.password
         self.game_creator = game_creator
-
-        self.court_deck = list()
-        self.valid_player_actions = list()
-        if use_treasury:
-            self.treasury = 0
-
         self.max_players = 10
 
-        self.use_inquisitor = use_inquisitor
-        self.use_treasury = use_treasury  # Todo: To implement
-        self.final_guessing = final_guessing  # Todo: To implement
+        self.deck = list()
+        self.court_deck = list()
+        self.valid_player_actions = list()
+        if parameters.teams:
+            self.treasury = 0
+
+        self.inquisitor = parameters.inquisitor
+        self.teams = parameters.teams  # Todo: To implement
+        self.guessing = parameters.guessing  # Todo: To implement
 
         self.players = dict()
         self.player_order = list()
@@ -141,8 +154,6 @@ class Game(object):
 
         self.messages = list()
         self.messages_to_send = list()
-
-        self.instance = instance
 
     def add_player(self, player, password):
         if self.password is not None and password != self.password:
@@ -259,23 +270,6 @@ class Game(object):
 
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
 
-    def broadcast_message(self, message, alive_only=False):
-        for name in self.player_order:
-            if (alive_only and not self.players[name].dead()) or not alive_only:
-                self.add_message_to_queue(name, message)
-            else:
-                print("skipping {0} as they are dead".format(name))
-
-    def add_message_to_queue(self, user, message):
-        self.messages_to_send.append((user, message))
-
-    def process_outbound_messages(self, msg_func):
-        while len(self.messages_to_send) > 0:
-            user, message = self.messages_to_send.pop(0)
-
-            print("[{0}] {1}".format(user, message))
-            msg_func(user, message)
-
     def face_up_cards(self):
         face_up = list()
         for name in self.player_order:
@@ -387,6 +381,19 @@ class Player(object):
 
         self.coins += amount
 
+create_game_parser = argparse.ArgumentParser(prog='.create', add_help=False)
+create_game_parser.add_argument('name', help='The game\'s name. Used for joining')
+create_game_parser.add_argument('-p', '--password', dest='password', help='Set password for private game')
+group = create_game_parser.add_mutually_exclusive_group()
+group.add_argument('-i', '--inq', dest='inquisitor', action='store_true', default=True, help='Use Inquisitor instead of Ambassador (Default)')
+group.add_argument('-a', '--amb', dest='ambassador', action='store_true', default=False, help='Use Ambassador instead of Inquisitor')
+create_game_parser.add_argument('-t', '--teams', dest='teams', action='store_true', default=False, help='Use Teams/Allegiances and the Treasury Reserve')
+create_game_parser.add_argument('-g', '--guess', dest='guessing', action='store_true', default=False, help='Requires guessing an opponent\'s card to coup or assassinate')
+
+join_parser = argparse.ArgumentParser(prog='.join', add_help=False)
+join_parser.add_argument('name', help='The game name to join')
+join_parser.add_argument('-p', '--password', dest='password', help='The game\'s password')
+
 
 class Instance(object):
     def __init__(self):
@@ -421,198 +428,146 @@ class Instance(object):
         games = [self.games[x].long_name() for x in self.games.keys()]
         return "\n".join(games)
 
+    def run_command(self, action, user, msg_func, arguments):
+        if action == 'create':
+            ret = self.parse_base_create(user, msg_func, arguments)
+        elif action == 'start':
+            ret = self.parse_base_start(user, msg_func, arguments)
+        elif action == 'join':
+            ret = self.parse_base_join(user, msg_func, arguments)
+        elif action == 'list':
+            ret = self.parse_base_list(user, msg_func, arguments)
+        elif action == 'help':
+            ret = self.parse_base_help(user, msg_func, arguments)
+        else:
+            ret = "Error: Action unrecognized"
+        return ret
 
-def parse_base_create(instance, user, arguments):
-    if len(arguments) == 0:
-        raise MalformedCLICommand("Not enough arguments")
+    def parse_base_create(self, user, msg_func, arguments):
+        args = create_game_parser.parse_args(arguments)
 
-    name = arguments[0]
+        if self.instance.game_exists(args.name):
+            raise InvalidCLICommand("A game with this name already exists")
 
-    if instance.game_exists(name):
-        raise InvalidCLICommand("A game with this name already exists")
+        game = Game(self.instance, user, args)
+        self.instance.add_game(name, game)
 
-    password = None
-    if len(arguments) >= 2:
-        password = arguments[1]
+        player = Player(user)
+        game.add_player(player, password)
 
-    game = Game(instance, user, name, password)
-    instance.add_game(name, game)
-
-    player = Player(user)
-    game.add_player(player, password)
-
-    return "Game '{0}' created".format(name)
-
-
-def parse_base_start(instance, user, arguments):
-    if len(arguments) == 0:
-        raise MalformedCLICommand("Not enough arguments")
-
-    name = arguments[0]
-
-    game = instance.find_game_by_name(name)
-
-    if not game.is_creator(user):
-        raise GamePermissionError("Only the owner of the game may start the game")
-
-    game.start()
-
-    return "Game '{0}' started".format(name)
+        return "Game '{0}' created".format(name)
 
 
-def parse_base_join(instance, user, arguments):
-    if len(arguments) == 0:
-        raise MalformedCLICommand("Not enough arguments")
+    def parse_base_start(self, user, msg_func, arguments):
+        if len(arguments) == 0:
+            raise MalformedCLICommand("Not enough arguments")
 
-    game_name = arguments[0]
+        name = arguments[0]
 
-    password = None
+        game = instance.find_game_by_name(name)
 
-    if len(arguments) >= 2:
-        password = arguments[1]
+        if not game.is_creator(user):
+            raise GamePermissionError("Only the owner of the game may start the game")
 
-    game = instance.find_game_by_name(game_name)
+        game.start()
 
-    player = Player(user)
-    game.add_player(player, password)
-
-    game.broadcast_message(
-        "Game '{}', players ({}): {}".format(game_name, len(game.players), ", ".join(game.players.keys())))
-
-    return "Joined game '{}'".format(game_name, ", ".join(game.players.keys()))
+        return "Game '{0}' started".format(name)
 
 
-def parse_base_forfeit(instance, user, arguments):
-    return
+    def parse_base_join(self, user, msg_func, arguments):
+        if len(arguments) == 0:
+            raise MalformedCLICommand("Not enough arguments")
+
+        game_name = arguments[0]
+
+        password = None
+
+        if len(arguments) >= 2:
+            password = arguments[1]
+
+        game = instance.find_game_by_name(game_name)
+
+        player = Player(user)
+        game.add_player(player, password)
+
+        game.broadcast_message(
+            "Game '{}', players ({}): {}".format(game_name, len(game.players), ", ".join(game.players.keys())))
+
+        return "Joined game '{}'".format(game_name, ", ".join(game.players.keys()))
 
 
-def parse_base_list(instance, user, arguments):
-    return instance.print_games()
+    def parse_base_list(self, user, msg_func, arguments):
+        return instance.print_games()
 
-
-def parse_base_help(instance, user, arguments):
-    ret = list([
-        "Global commands:",
-        "  create <name> [password]",
-        "  list",
-        "  join <name> [password]",
-        "  start <name>",
-        "  forfeit",
-        "Game commands:",
-        "  do income",
-        "  do foreign_aid",
-        "  do coup <player>",
-        "  do tax",
-        "  do steal <player>",
-        "  do assassinate <player>",
-        "  do exchange",
-        "  counter <player> with <role>",
-        "  challenge <player>",
-        "  accept",
-        "  status"
-    ])
-
-    return "\n".join(ret)
-
-
-def parse_game_do(instance, game, user, arguments):
-    if len(arguments) == 0:
-        raise InvalidCLICommand("Not enough arguments")
-
-    if not game.my_turn(user):
-        raise GameInvalidOperation("It is not your turn yet.")
-
-    action_text = arguments[0]
-
-    player = game.find_player_by_name(user)
-
-    action = game.get_action_by_name(action_text)
-
-    if player.cash() >= 10 and action != coup:
-        raise GameInvalidOperation("You have 10 or more coins, you must coup!")
-
-    print("'{0}' is the action".format(action))
-
-    func = getattr(game, "do_" + action.name, game.no_action)
-
-    func(game, player, arguments)
-
-    game.process_outbound_messages()
-
-
-def parse_game_challenge(instance, game, user, arguments):
-    return
-
-
-def parse_game_counter(instance, game, user, arguments):
-    return
-
-
-def parse_game_status(instance, game, user, arguments):
-    return
-
+    def parse_base_help(self, user, msg_func, arguments):#Todo Add other helps
+        ret = list([
+            "Bot for playing Coup. Use .help <command> for more information",
+            "Global commands:",
+            " .create <name> [-p password]",
+            " .list",
+            " .join <name> [-p password]",
+            " .start <name>",
+            "Game commands:",
+            " .do income",
+            " .do foreign_aid",
+            " .do coup <player>",
+            " .do tax",
+            " .do steal <player>",
+            " .do assassinate <player>",
+            " .do exchange",
+            " .counter <player> with <role>",
+            " .challenge <player>",
+            " .accept",
+            " .status",
+            " .forfeit"
+        ])
+        return "\n".join(ret)
 
 class CoupCLIParser(object):
     def __init__(self, instance):
-        self.recognized_base_actions = dict(
-            create=parse_base_create,
-            start=parse_base_start,
-            join=parse_base_join,
-            forfeit=parse_base_forfeit,
-            list=parse_base_list,
-            help=parse_base_help)
+        self.recognized_base_actions = ['create', 'start', 'join', 'list', 'help']
 
-        self.recognized_game_actions = dict(
-            do=parse_game_do,
-            challenge=parse_game_challenge,
-            counter=parse_game_counter,
-            status=parse_game_status)
+        self.recognized_game_actions = ['do', 'challenge', 'counter', 'accept', 'status', 'forfeit']
 
         self.instance = instance
 
-    def parse_input(self, user, msg_func, line):
-        arguments = line.rstrip().split()
+    def parse_input(self, message, msg_func):
+        arguments = message['command'].split()
 
         action = arguments[0]
+        user = message['nick']
+        try:
+            game = self.instance.find_user_game(user)
+        except GameNotFoundException:
+            game = None
 
-        ret = ""
+        ret = None
 
         try:
+            if action not in self.recognized_base_actions and action not in self.recognized_game_actions:
+                action_comp = []
+                if game is not None and game.is_active():
+                    action_comp = completion(action, self.recognized_game_actions)
+                if not action_comp:
+                    action_comp = completion(action, self.recognized_base_actions)
+                if len(action_comp) == 0:
+                    raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
+                elif len(action_comp) > 1:
+                    raise InvalidCLICommand("Ambigious command: {}. Maybe you meant {}. Type .help for available options".format(action, ' or '.join(action_comp)))
+                else:
+                    action = action_comp[0]
+
             if action in self.recognized_base_actions:
-                ret = self.parse_base_action(user, action, arguments[1:])
+                ret = self.instance.run_command(action, user, msg_func, arguments[1:])
             elif action in self.recognized_game_actions:
-                ret = self.parse_game_action(user, action, msg_func, arguments[1:])
+                if game is None:
+                    raise GameNotFoundException("You are not in a game and cannot use {}".format(action))
+                ret = game.run_command(action, user, msg_func, arguments[1:])
+            else:
+                raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         except CoupException as e:
-            ret = "Error: {0} ".format(e.message)
-
-        print("[{0}] {1}: {2}".format(user, line.rstrip(), ret))
-        return ret
-
-    def parse_base_action(self, user, action, arguments):
-        """
-
-        :param user:
-        :param action:
-        :param arguments:
-        """
-        return self.recognized_base_actions[action](self.instance, user, arguments)
-
-    def parse_game_action(self, user, action, msg_func, arguments):
-        """
-
-        :param user:
-        :param action:
-        :param arguments:
-        :raise RuntimeWarning:
-        """
-        game = self.instance.find_user_game(user)
-
-        if game is None:
-            raise GameInvalidOperation("{0} is not part of any game".format(user))
-
-        ret = self.recognized_game_actions[action](self.instance, game, user, arguments)
-
-        game.process_outbound_messages(msg_func)
+            ret = "Error: {0} ".format(e.args[0])
+            logging.warning(ret)
 
         return ret
 
@@ -749,24 +704,23 @@ def unittest():
     ret = parser.parse_input('jswaro', print, 'do income')
 
 
-def main():
+def main(channellist, botnick, botpass, server, usessl):
     """
     Main Loop
     """
     instance = Instance()
     parser = CoupCLIParser(instance)
 
-    bot = CoupMumbleBot.MumbleBot(None, parser)
-    bot.start(mumble.Server('murmur.mngamergeek.com'), 'CoupBot' + str(random.randint(100, 999)))
-
-    while bot.is_connected:
-        try:
-            time.sleep(5)
-        except KeyboardInterrupt:
-            bot.stop()
+    connection = irc_simple.irc_connection(parser=parser,
+                                            channellist=channellist,
+                                            botnick=botnick,
+                                            botpass=botpass,
+                                            server=server,
+                                            usessl=usessl)
+    connection.run()
 
 
 if __name__ == "__main__":
-    main()
+    main(channellist, botnick, botpass, server, usessl)
 
 # unittest()

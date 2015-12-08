@@ -2,6 +2,8 @@ from __future__ import print_function
 import socket
 import ssl
 import re
+import time
+from collections import deque
 import logging
 
 class irc_connection():
@@ -15,7 +17,9 @@ class irc_connection():
         self.port = port
         self.botnick = botnick
         self.parser = parser
-        logging.debug("Connecting...")
+        self.msgqueue = deque()
+        self.lastsent = 0
+        self.prevdelay = None
         if usessl:
             raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.ircsocket = ssl.wrap_socket(raw_socket)
@@ -23,36 +27,66 @@ class irc_connection():
         else:
             self.ircsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.ircsocket.connect((server, port))
-        logging.debug("Identifying...")
+        self.ircsocket.setblocking(False)
         self.identify(botnick, botpass)
-        logging.debug("Joining...")
         for channel in channellist:
             self.joinchan(channel)
-        logging.debug("Done")
 
-    def sendraw(self, msg):
-        logging.debug(">> {}".format(msg))
-        self.ircsocket.send(msg.encode("utf-8"))
+    def sendraw(self, msg, priority=False, delay=None):
+        if priority:
+            self.msgqueue.appendleft((msg, delay))
+        else:
+            self.msgqueue.append((msg, delay))
 
-    def sendmsg(self, name , msg):
+    def sendmsg(self, name , msg, delay=None):
         for msgline in msg.split("\n"):
-            self.sendraw("PRIVMSG {} :{}\n".format(name, msgline))
+            self.sendraw("PRIVMSG {} :{}\n".format(name, msgline), delay=delay)
 
     def joinchan(self, channel):
         self.sendraw("JOIN " + channel + "\n")
 
     def identify(self, nick, password):
         self.sendraw("USER {0} {0} {0} {0}\n".format(nick))
-        self.sendraw("NICK {}\n".format(nick))
+        self.sendraw("NICK {}\n".format(nick), delay=2)
         if password is not None:
-            self.sendraw("PASS {}\n".format(password))
+            self.sendraw("PASS {}\n".format(password), delay=2)
+        self.sendmsg("nickserv", "identify {}".format(password), delay=25)
+
+    def process_send_recv(self):
+        #The limits are 5 line burst, 2 lines per second afterward. It is
+        #implemented by giving you 2 credits a second, limited to 5. So if you
+        #pause a second, you can do a 4 line burst. if the backlog exceeds 20
+        #lines, you get killed for excess flood
+
+        default_msg_delay = .5 #seconds of delay between messages
+        ircmsg = None
+        while ircmsg is None:
+            #Send message
+            if self.prevdelay is None:
+                msg_delay = default_msg_delay
+            else:
+                msg_delay = self.prevdelay
+            if self.msgqueue and time.time() - self.lastsent > msg_delay:
+                msg, delay = self.msgqueue.popleft()
+                self.lastsent = time.time()
+                self.prevdelay = delay
+                logging.debug(">> {}".format(msg))
+                self.ircsocket.send(msg.encode("utf-8"))
+            #Recieve message
+            try:
+                ircmsg = self.ircsocket.recv(2048)
+            except socket.error:
+                pass
+        return ircmsg.decode("utf-8").strip("\n\r")
+
 
     def run(self):
         logging.debug("Listening")
         connected = True
         try:
             while connected:
-                ircmsg = self.ircsocket.recv(2048).decode("utf-8").strip("\n\r")
+                ircmsg = self.process_send_recv()
+                logging.info(ircmsg)
                 matchstr = ":(?P<nick>.*)!(?P<user>.*)@(?P<host>.*) PRIVMSG (?P<sentto>.*) :\.(?P<command>.*)"
                 privmsg = re.match(matchstr, ircmsg)
                 if privmsg is not None:
@@ -79,12 +113,9 @@ class irc_connection():
         self.disconnect()
 
     def ping(self):
-        self.sendraw("PONG :pingis\n")
+        self.sendraw("PONG :pingis\n", priority=True)
 
     def disconnect(self):
-        self.sendraw("QUIT :\n")
-        ircmsg = self.ircsocket.recv(2048).decode("utf-8").strip("\n\r")
-        logging.debug(ircmsg)
         self.ircsocket.shutdown(socket.SHUT_RDWR)
         self.ircsocket.close()
 

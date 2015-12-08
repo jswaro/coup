@@ -6,7 +6,7 @@ import logging
 import irc_simple
 from secrets import channellist, botnick, botpass, server, usessl
 
-__author__ = 'jswaro'
+__author__ = 'jswaro', 'dcolestock'
 
 logging.basicConfig(filename='coupbot.log', level=logging.DEBUG)
 
@@ -78,7 +78,6 @@ class Action(object):
 
     def __str__(self):
         return self.name
-
 
 class Influence(object):
     def __init__(self, name, actions, counteractions):
@@ -440,22 +439,22 @@ class Instance(object):
         elif action == 'help':
             ret = self.parse_base_help(user, msg_func, arguments)
         else:
-            ret = "Error: Action unrecognized"
+            raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         return ret
 
     def parse_base_create(self, user, msg_func, arguments):
         args = create_game_parser.parse_args(arguments)
 
-        if self.instance.game_exists(args.name):
+        if self.game_exists(args.name):
             raise InvalidCLICommand("A game with this name already exists")
 
-        game = Game(self.instance, user, args)
-        self.instance.add_game(name, game)
+        game = Game(self, user, args)
+        self.add_game(args.name, game)
 
         player = Player(user)
-        game.add_player(player, password)
+        game.add_player(player, args.password)
 
-        return "Game '{0}' created".format(name)
+        return "Game '{0}' created".format(args.name)
 
 
     def parse_base_start(self, user, msg_func, arguments):
@@ -464,7 +463,7 @@ class Instance(object):
 
         name = arguments[0]
 
-        game = instance.find_game_by_name(name)
+        game = self.find_game_by_name(name)
 
         if not game.is_creator(user):
             raise GamePermissionError("Only the owner of the game may start the game")
@@ -475,8 +474,7 @@ class Instance(object):
 
 
     def parse_base_join(self, user, msg_func, arguments):
-        if len(arguments) == 0:
-            raise MalformedCLICommand("Not enough arguments")
+        args = join_game_parser.parse_args(arguments)
 
         game_name = arguments[0]
 
@@ -485,7 +483,7 @@ class Instance(object):
         if len(arguments) >= 2:
             password = arguments[1]
 
-        game = instance.find_game_by_name(game_name)
+        game = self.find_game_by_name(game_name)
 
         player = Player(user)
         game.add_player(player, password)
@@ -497,7 +495,7 @@ class Instance(object):
 
 
     def parse_base_list(self, user, msg_func, arguments):
-        return instance.print_games()
+        return self.print_games()
 
     def parse_base_help(self, user, msg_func, arguments):#Todo Add other helps
         ret = list([

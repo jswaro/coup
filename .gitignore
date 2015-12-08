@@ -1,2 +1,3 @@
 *.py[cod]
 secrets.py
+.idea

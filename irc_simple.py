@@ -40,7 +40,8 @@ class irc_connection():
 
     def sendmsg(self, name , msg, delay=None):
         for msgline in msg.split("\n"):
-            self.sendraw("PRIVMSG {} :{}\n".format(name, msgline), delay=delay)
+            if msgline != "":
+                self.sendraw("PRIVMSG {} :{}\n".format(name, msgline), delay=delay)
 
     def joinchan(self, channel):
         self.sendraw("JOIN " + channel + "\n")

@@ -8,7 +8,7 @@ from secrets import channellist, botnick, botpass, server, usessl
 
 __author__ = 'jswaro', 'dcolestock'
 
-logging.basicConfig(filename='coupbot.log', level=logging.DEBUG)
+logging.basicConfig(filename='freenode.log', level=logging.DEBUG)
 
 class CoupException(Exception):
     pass
@@ -380,7 +380,11 @@ class Player(object):
 
         self.coins += amount
 
-create_game_parser = argparse.ArgumentParser(prog='.create', add_help=False)
+class ThrowingArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise MalformedCLICommand(message)
+
+create_game_parser = ThrowingArgumentParser(prog='.create', add_help=False)
 create_game_parser.add_argument('name', help='The game\'s name. Used for joining')
 create_game_parser.add_argument('-p', '--password', dest='password', help='Set password for private game')
 group = create_game_parser.add_mutually_exclusive_group()
@@ -389,7 +393,7 @@ group.add_argument('-a', '--amb', dest='ambassador', action='store_true', defaul
 create_game_parser.add_argument('-t', '--teams', dest='teams', action='store_true', default=False, help='Use Teams/Allegiances and the Treasury Reserve')
 create_game_parser.add_argument('-g', '--guess', dest='guessing', action='store_true', default=False, help='Requires guessing an opponent\'s card to coup or assassinate')
 
-join_parser = argparse.ArgumentParser(prog='.join', add_help=False)
+join_parser = ThrowingArgumentParser(prog='.join', add_help=False)
 join_parser.add_argument('name', help='The game name to join')
 join_parser.add_argument('-p', '--password', dest='password', help='The game\'s password')
 
@@ -474,7 +478,7 @@ class Instance(object):
 
 
     def parse_base_join(self, user, msg_func, arguments):
-        args = join_game_parser.parse_args(arguments)
+        args = join_parser.parse_args(arguments)
 
         game_name = arguments[0]
 
@@ -498,6 +502,14 @@ class Instance(object):
         return self.print_games()
 
     def parse_base_help(self, user, msg_func, arguments):#Todo Add other helps
+        if len(arguments) > 0:
+            help_request = arguments[0]
+        else:
+            help_request = ""
+        if help_request == 'create':
+            return create_game_parser.format_help()
+        elif help_request == 'join':
+            return join_parser.format_help()
         ret = list([
             "Bot for playing Coup. Use .help <command> for more information",
             "Global commands:",
@@ -529,6 +541,22 @@ class CoupCLIParser(object):
 
         self.instance = instance
 
+    def complete_command(self, action, ingame):
+        if action not in self.recognized_base_actions and action not in self.recognized_game_actions:
+            action_comp = []
+            if ingame:
+                action_comp = completion(action, self.recognized_game_actions)
+            if not action_comp:
+                action_comp = completion(action, self.recognized_base_actions)
+            if len(action_comp) == 0:
+                raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
+            elif len(action_comp) > 1:
+                raise InvalidCLICommand("Ambigious command: {}. Maybe you meant {}. Type .help for available options".format(action, ' or '.join(action_comp)))
+            else:
+                action = action_comp[0]
+        return action
+
+
     def parse_input(self, message, msg_func):
         arguments = message['command'].split()
 
@@ -539,21 +567,15 @@ class CoupCLIParser(object):
         except GameNotFoundException:
             game = None
 
+        if game is not None and game.is_active():
+            game_active = True
+        else:
+            game_active = False
+
         ret = None
 
         try:
-            if action not in self.recognized_base_actions and action not in self.recognized_game_actions:
-                action_comp = []
-                if game is not None and game.is_active():
-                    action_comp = completion(action, self.recognized_game_actions)
-                if not action_comp:
-                    action_comp = completion(action, self.recognized_base_actions)
-                if len(action_comp) == 0:
-                    raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
-                elif len(action_comp) > 1:
-                    raise InvalidCLICommand("Ambigious command: {}. Maybe you meant {}. Type .help for available options".format(action, ' or '.join(action_comp)))
-                else:
-                    action = action_comp[0]
+            action = self.complete_command(action, game_active)
 
             if action in self.recognized_base_actions:
                 ret = self.instance.run_command(action, user, msg_func, arguments[1:])

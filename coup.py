@@ -462,12 +462,8 @@ class Instance(object):
 
 
     def parse_base_start(self, user, msg_func, arguments):
-        if len(arguments) == 0:
-            raise MalformedCLICommand("Not enough arguments")
 
-        name = arguments[0]
-
-        game = self.find_game_by_name(name)
+        game = self.find_user_game(user)
 
         if not game.is_creator(user):
             raise GamePermissionError("Only the owner of the game may start the game")
@@ -480,58 +476,58 @@ class Instance(object):
     def parse_base_join(self, user, msg_func, arguments):
         args = join_parser.parse_args(arguments)
 
-        game_name = arguments[0]
-
-        password = None
-
-        if len(arguments) >= 2:
-            password = arguments[1]
-
-        game = self.find_game_by_name(game_name)
+        game = self.find_game_by_name(args.name)
 
         player = Player(user)
-        game.add_player(player, password)
+        game.add_player(player, args.password)
 
         game.broadcast_message(
-            "Game '{}', players ({}): {}".format(game_name, len(game.players), ", ".join(game.players.keys())))
+            "Game '{}', players ({}): {}".format(args.name, len(game.players), ", ".join(game.players.keys())))
 
-        return "Joined game '{}'".format(game_name, ", ".join(game.players.keys()))
+        return "Joined game '{}'".format(args.name, ", ".join(game.players.keys()))
 
 
     def parse_base_list(self, user, msg_func, arguments):
         return self.print_games()
 
     def parse_base_help(self, user, msg_func, arguments):#Todo Add other helps
-        if len(arguments) > 0:
-            help_request = arguments[0]
-        else:
-            help_request = ""
-        if help_request == 'create':
+        if len(arguments) == 0:
+            ret = list([
+                "Bot for playing Coup. Use .help <command> for more information",
+                "Global commands:",
+                " .create <name> [-p password]",
+                " .list",
+                " .join <name> [-p password]",
+                " .start",
+                "Game commands:",
+                " .do income",
+                " .do foreign_aid",
+                " .do coup <player>",
+                " .do tax",
+                " .do steal <player>",
+                " .do assassinate <player>",
+                " .do exchange",
+                " .counter <player> with <role>",
+                " .challenge <player>",
+                " .accept",
+                " .status",
+                " .forfeit"
+            ])
+            return "\n".join(ret)
+
+        if arguments[0][0] == ".":
+            arguments[0] = arguments[0][1:]
+
+        if arguments[0] == 'create':
             return create_game_parser.format_help()
-        elif help_request == 'join':
+        elif arguments[0] == 'list':
+            return "Lists available games"
+        elif arguments[0] == 'join':
             return join_parser.format_help()
-        ret = list([
-            "Bot for playing Coup. Use .help <command> for more information",
-            "Global commands:",
-            " .create <name> [-p password]",
-            " .list",
-            " .join <name> [-p password]",
-            " .start <name>",
-            "Game commands:",
-            " .do income",
-            " .do foreign_aid",
-            " .do coup <player>",
-            " .do tax",
-            " .do steal <player>",
-            " .do assassinate <player>",
-            " .do exchange",
-            " .counter <player> with <role>",
-            " .challenge <player>",
-            " .accept",
-            " .status",
-            " .forfeit"
-        ])
-        return "\n".join(ret)
+        elif arguments[0] == 'start':
+            return "starts the game you own"
+        else:
+            return "help not implemented for this command" #TODO
 
 class CoupCLIParser(object):
     def __init__(self, instance):

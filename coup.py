@@ -126,6 +126,7 @@ inquisitor = Influence("Inquisitor", actions=[exchange1, examine], counteraction
 
 class Game(object):
     def __init__(self, instance, game_creator, parameters):
+        self.isactive = False
         self.instance = instance
         self.name = parameters.name
         self.password = parameters.password
@@ -220,6 +221,8 @@ class Game(object):
         for x in xrange(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
 
+
+        self.isactive = True
         self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. "
@@ -563,7 +566,7 @@ class CoupCLIParser(object):
         except GameNotFoundException:
             game = None
 
-        if game is not None and game.is_active():
+        if game is not None and game.isactive:
             game_active = True
         else:
             game_active = False

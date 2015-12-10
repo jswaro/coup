@@ -1,14 +1,16 @@
 from __future__ import print_function
-import time
 import random
 import argparse
 import logging
+
 import irc_simple
 from secrets import channellist, botnick, botpass, server, usessl
+
 
 __author__ = 'jswaro', 'dcolestock'
 
 logging.basicConfig(filename='freenode.log', level=logging.DEBUG)
+
 
 class CoupException(Exception):
     pass
@@ -61,6 +63,7 @@ A counter can result in another contestable event, but only contestable in terms
 A counter can only be challenged, but a declaration can be countered or challenged. 
 '''
 
+
 def completion(query_str, possible):
     if query_str in possible:
         return [query_str]
@@ -71,6 +74,7 @@ def completion(query_str, possible):
                 found.append(try_str)
     return found
 
+
 class Action(object):
     def __init__(self, name, description):
         self.name = name
@@ -78,6 +82,7 @@ class Action(object):
 
     def __str__(self):
         return self.name
+
 
 class Influence(object):
     def __init__(self, name, actions, counteractions):
@@ -113,8 +118,6 @@ coup = Action("Coup", "Pay 7 coins, choose player to lose influence")
 convert = Action("Convert",
                  "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve")
 embezzle = Action("Embezzle", "Take all coins from Treasury Reserve")
-
-['income', 'foreign_aid', 'tax', 'steal', 'exchange', 'examine', 'coup', 'convert', 'embezzle']
 
 contessa = Influence("Contessa", actions=[], counteractions=[assassinate])
 duke = Influence("Duke", actions=[tax], counteractions=[foreign_aid])
@@ -220,7 +223,6 @@ class Game(object):
         turn_order = list()
         for x in xrange(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
-
 
         self.isactive = True
         self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
@@ -383,18 +385,24 @@ class Player(object):
 
         self.coins += amount
 
+
 class ThrowingArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         raise MalformedCLICommand(message)
+
 
 create_game_parser = ThrowingArgumentParser(prog='.create', add_help=False)
 create_game_parser.add_argument('name', help='The game\'s name. Used for joining')
 create_game_parser.add_argument('-p', '--password', dest='password', help='Set password for private game')
 group = create_game_parser.add_mutually_exclusive_group()
-group.add_argument('-i', '--inq', dest='inquisitor', action='store_true', default=True, help='Use Inquisitor instead of Ambassador (Default)')
-group.add_argument('-a', '--amb', dest='ambassador', action='store_true', default=False, help='Use Ambassador instead of Inquisitor')
-create_game_parser.add_argument('-t', '--teams', dest='teams', action='store_true', default=False, help='Use Teams/Allegiances and the Treasury Reserve')
-create_game_parser.add_argument('-g', '--guess', dest='guessing', action='store_true', default=False, help='Requires guessing an opponent\'s card to coup or assassinate')
+group.add_argument('-i', '--inq', dest='inquisitor', action='store_true', default=True,
+                   help='Use Inquisitor instead of Ambassador (Default)')
+group.add_argument('-a', '--amb', dest='ambassador', action='store_true', default=False,
+                   help='Use Ambassador instead of Inquisitor')
+create_game_parser.add_argument('-t', '--teams', dest='teams', action='store_true', default=False,
+                                help='Use Teams/Allegiances and the Treasury Reserve')
+create_game_parser.add_argument('-g', '--guess', dest='guessing', action='store_true', default=False,
+                                help='Requires guessing an opponent\'s card to coup or assassinate')
 
 join_parser = ThrowingArgumentParser(prog='.join', add_help=False)
 join_parser.add_argument('name', help='The game name to join')
@@ -463,7 +471,6 @@ class Instance(object):
 
         return "Game '{0}' created".format(args.name)
 
-
     def parse_base_start(self, user, msg_func, arguments):
 
         game = self.find_user_game(user)
@@ -474,7 +481,6 @@ class Instance(object):
         game.start()
 
         return "Game '{0}' started".format(name)
-
 
     def parse_base_join(self, user, msg_func, arguments):
         args = join_parser.parse_args(arguments)
@@ -489,11 +495,10 @@ class Instance(object):
 
         return "Joined game '{}'".format(args.name, ", ".join(game.players.keys()))
 
-
     def parse_base_list(self, user, msg_func, arguments):
         return self.print_games()
 
-    def parse_base_help(self, user, msg_func, arguments):#Todo Add other helps
+    def parse_base_help(self, user, msg_func, arguments):  # Todo Add other helps
         if len(arguments) == 0:
             ret = list([
                 "Bot for playing Coup. Use .help <command> for more information",
@@ -530,7 +535,8 @@ class Instance(object):
         elif arguments[0] == 'start':
             return "starts the game you own"
         else:
-            return "help not implemented for this command" #TODO
+            return "help not implemented for this command"  # TODO
+
 
 class CoupCLIParser(object):
     def __init__(self, instance):
@@ -550,11 +556,13 @@ class CoupCLIParser(object):
             if len(action_comp) == 0:
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
             elif len(action_comp) > 1:
-                raise InvalidCLICommand("Ambigious command: {}. Maybe you meant {}. Type .help for available options".format(action, ' or '.join(action_comp)))
+                raise InvalidCLICommand(
+                    "Ambigious command: {}. Maybe you meant {}. Type .help for available options".format(action,
+                                                                                                         ' or '.join(
+                                                                                                             action_comp)))
             else:
                 action = action_comp[0]
         return action
-
 
     def parse_input(self, message, msg_func):
         arguments = message['command'].split()
@@ -731,11 +739,11 @@ def main(channellist, botnick, botpass, server, usessl):
     parser = CoupCLIParser(instance)
 
     connection = irc_simple.irc_connection(parser=parser,
-                                            channellist=channellist,
-                                            botnick=botnick,
-                                            botpass=botpass,
-                                            server=server,
-                                            usessl=usessl)
+                                           channellist=channellist,
+                                           botnick=botnick,
+                                           botpass=botpass,
+                                           server=server,
+                                           usessl=usessl)
     connection.run()
 
 

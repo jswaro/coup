@@ -1,0 +1,59 @@
+def unittest():
+    instance = Instance()
+    parser = CoupCLIParser(instance)
+
+    # there should be no games yet
+    assert len(instance.games) == 0
+    assert instance.print_games() == ""
+
+    # create jim game
+    parser.parse_input('jswaro', print, 'create jim')
+    assert instance.print_games() == "jim"
+
+    # test failure to start
+    ret = parser.parse_input('jswaro', print, 'start jim')
+    assert 'Error: Not enough players to start yet' in ret
+
+    # add player
+    parser.parse_input('john', print, 'join jim')
+    game = instance.find_game_by_name('jim')
+    assert 'jswaro' in game.players.keys() and 'john' in game.players.keys()
+
+    # test not allowed to start
+    ret = parser.parse_input('john', print, 'start jim')
+    assert 'Error: Only the owner of the game may start the game' in ret
+
+    # test no game found
+    ret = parser.parse_input('jswaro', print, 'start blargh')
+    assert "Error: Game 'blargh' not found" in ret
+
+    # test malformed start
+    ret = parser.parse_input('jswaro', print, 'start')
+    assert 'Not enough arguments' in ret
+
+    # test successful start
+    ret = parser.parse_input('jswaro', print, 'start jim')
+    assert "Game 'jim' started" in ret
+
+    # test list
+    ret = parser.parse_input('jimbob', print, 'list')
+    assert 'jim' == ret
+
+    parser.parse_input('dood', print, 'create place')
+    ret = parser.parse_input('dood', print, 'list')
+    assert 'jim' in ret and 'place' in ret
+
+    parser.parse_input('rawr', print, 'create roar roarmore')
+    ret = parser.parse_input('rawr', print, 'list')
+    assert 'roar (private)' in ret
+
+    ret = parser.parse_input('jim', print, 'join roar')
+    assert 'Error: Incorrect password. You may not join this game' in ret
+
+    ret = parser.parse_input('jim', print, 'join roar evenmore')
+    assert 'Error: Incorrect password. You may not join this game' in ret
+
+    ret = parser.parse_input('jim', print, 'help')
+    assert 'Global commands' in ret
+
+    ret = parser.parse_input('jswaro', print, 'do income')

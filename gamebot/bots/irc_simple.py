@@ -34,11 +34,11 @@ class irc_connection():
         for channel in channellist:
             self.joinchan(channel)
 
-    def sendraw(self, msg, priority=False, delay=None, quiet=False):
+    def sendraw(self, msg, priority=False, delay=None):
         if priority:
-            self.msgqueue.appendleft((msg, delay, quiet))
+            self.msgqueue.appendleft((msg, delay))
         else:
-            self.msgqueue.append((msg, delay, quiet))
+            self.msgqueue.append((msg, delay))
 
     def sendmsg(self, name, msg, delay=None):
         for msgline in msg.split("\n"):
@@ -70,13 +70,10 @@ class irc_connection():
             else:
                 msg_delay = self.prevdelay
             if self.msgqueue and time.time() - self.lastsent > msg_delay:
-                msg, delay, quiet = self.msgqueue.popleft()
+                msg, delay = self.msgqueue.popleft()
                 self.lastsent = time.time()
                 self.prevdelay = delay
-                if quiet:
-                    logging.debug(">> {}".format(msg))
-                else:
-                    logging.info(">> {}".format(msg))
+                logging.debug(">> {}".format(msg))
                 self.ircsocket.send(msg.encode("utf-8"))
             # Recieve message
             try:
@@ -102,9 +99,10 @@ class irc_connection():
                                'command': privmsg.group('command'),
                                'raw': ircmsg,
                                'is_priv': privmsg.group('sentto') == self.botnick}
+                    logging.info("{} << .{}".format(message['nick'], message['command']))
                     response = self.parser.parse_input(message, self.sendmsg)
                     if response is not None:
-                        logging.info("{}: {}".format(message['nick'], response))
+                        logging.info("{} >> {}".format(message['nick'], response))
                         self.sendmsg(message['nick'], response)
                 if ircmsg.startswith("PING :"):
                     self.ping()
@@ -117,7 +115,7 @@ class irc_connection():
         self.disconnect()
 
     def ping(self):
-        self.sendraw("PONG :pingis\n", priority=True, quiet=True)
+        self.sendraw("PONG :pingis\n", priority=True)
 
     def disconnect(self):
         self.ircsocket.shutdown(socket.SHUT_RDWR)

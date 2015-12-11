@@ -1,6 +1,6 @@
-__author__ = 'jswaro'
-
 from gamebot.coup.exceptions import GameInvalidOperation
+
+__author__ = 'jswaro'
 
 
 class Player(object):

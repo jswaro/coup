@@ -1,6 +1,6 @@
-__author__ = 'jswaro'
-
 from gamebot.coup.actions import assassinate, foreign_aid, steal, tax, exchange1, exchange2, examine
+
+__author__ = 'jswaro'
 
 
 class Influence(object):

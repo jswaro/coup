@@ -24,16 +24,16 @@ A counter can result in another contestable event, but only contestable in terms
 
 A counter can only be challenged, but a declaration can be countered or challenged.
 """
-
-__author__ = 'jswaro'
-
 import random
 
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
 from gamebot.coup.actions import income, foreign_aid, coup, embezzle, convert
 from gamebot.coup.cli import create_game_parser, join_parser
 from gamebot.coup.player import Player
-from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation, GamePermissionError
+from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation, GamePermissionError,\
+    InvalidCLICommand, CoupException
+
+__author__ = 'jswaro'
 
 
 class Game(object):
@@ -89,12 +89,12 @@ class Game(object):
 
         for card in cards:
             num_cards_each = 3
-            if 6 < len(self.players) and len(self.players) <= 8:
+            if 6 < len(self.players) <= 8:
                 num_cards_each = 4
             elif len(self.players) > 8:
                 num_cards_each = 5
 
-            for x in xrange(0, num_cards_each):
+            for x in range(0, num_cards_each):
                 self.deck.append(card)
 
             for action in card.actions:
@@ -130,7 +130,7 @@ class Game(object):
         self.player_order = self.players.keys()
 
         turn_order = list()
-        for x in xrange(0, len(self.players)):
+        for x in range(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
 
         self.isactive = True
@@ -324,7 +324,7 @@ class Instance(object):
 
         game.start()
 
-        return "Game '{0}' started".format(name)
+        return "Game '{0}' started".format(game.name)
 
     def parse_base_join(self, user, msg_func, arguments):
         args = join_parser.parse_args(arguments)
@@ -337,7 +337,7 @@ class Instance(object):
         game.broadcast_message(
             "Game '{}', players ({}): {}".format(args.name, len(game.players), ", ".join(game.players.keys())))
 
-        return "Joined gamebot '{}'".format(args.name, ", ".join(game.players.keys()))
+        return "Joined game '{}'".format(args.name, ", ".join(game.players.keys()))
 
     def parse_base_list(self, user, msg_func, arguments):
         return self.print_games()

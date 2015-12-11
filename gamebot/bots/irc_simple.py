@@ -1,10 +1,12 @@
 from __future__ import print_function
+
+import logging
+import re
 import socket
 import ssl
-import re
 import time
 from collections import deque
-import logging
+
 
 class irc_connection():
     def __init__(self, parser, channellist, botnick, botpass=None, server='chat.freenode.net', usessl=True, port=None):
@@ -38,7 +40,7 @@ class irc_connection():
         else:
             self.msgqueue.append((msg, delay))
 
-    def sendmsg(self, name , msg, delay=None):
+    def sendmsg(self, name, msg, delay=None):
         for msgline in msg.split("\n"):
             if msgline != "":
                 self.sendraw("PRIVMSG {} :{}\n".format(name, msgline), delay=delay)
@@ -54,15 +56,15 @@ class irc_connection():
         self.sendmsg("nickserv", "identify {}".format(password), delay=25)
 
     def process_send_recv(self):
-        #The limits are 5 line burst, 2 lines per second afterward. It is
-        #implemented by giving you 2 credits a second, limited to 5. So if you
-        #pause a second, you can do a 4 line burst. if the backlog exceeds 20
-        #lines, you get killed for excess flood
+        # The limits are 5 line burst, 2 lines per second afterward. It is
+        # implemented by giving you 2 credits a second, limited to 5. So if you
+        # pause a second, you can do a 4 line burst. if the backlog exceeds 20
+        # lines, you get killed for excess flood
 
-        default_msg_delay = .5 #seconds of delay between messages
+        default_msg_delay = .5  # seconds of delay between messages
         ircmsg = None
         while ircmsg is None:
-            #Send message
+            # Send message
             if self.prevdelay is None:
                 msg_delay = default_msg_delay
             else:
@@ -73,13 +75,12 @@ class irc_connection():
                 self.prevdelay = delay
                 logging.debug(">> {}".format(msg))
                 self.ircsocket.send(msg.encode("utf-8"))
-            #Recieve message
+            # Recieve message
             try:
                 ircmsg = self.ircsocket.recv(2048)
             except socket.error:
                 pass
         return ircmsg.decode("utf-8").strip("\n\r")
-
 
     def run(self):
         logging.debug("Listening")
@@ -101,7 +102,7 @@ class irc_connection():
                     logging.debug("{}:{}:{}".format(message['sentto'], message['nick'], message['command']))
                     response = self.parser.parse_input(message, self.sendmsg)
                     if response is not None:
-                        logging.info("{}: {}".format(message['nick'],response))
+                        logging.info("{}: {}".format(message['nick'], response))
                         self.sendmsg(message['nick'], response)
                 if ircmsg.startswith("PING :"):
                     self.ping()
@@ -110,7 +111,7 @@ class irc_connection():
         except KeyboardInterrupt:
             logging.debug("Exiting: KeyboardInterrupt")
         else:
-            logging.debug("Exiting: {},{}".format(connected,ircmsg))
+            logging.debug("Exiting: {},{}".format(connected, ircmsg))
         self.disconnect()
 
     def ping(self):

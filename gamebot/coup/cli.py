@@ -67,15 +67,14 @@ Once a player is in a game, they may do any of the following commands on their t
 
 A player loses once they have lost all of their influence. At this point, they may leave to join another game.
 """
-
-__author__ = 'jswaro'
-
 import argparse
 import logging
 
 
 from gamebot.coup.exceptions import MalformedCLICommand, InvalidCLICommand, GameNotFoundException, CoupException
 from gamebot.coup.events import completion
+
+__author__ = 'jswaro'
 
 
 class CoupCLIParser(object):

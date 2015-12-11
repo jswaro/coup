@@ -34,11 +34,11 @@ class irc_connection():
         for channel in channellist:
             self.joinchan(channel)
 
-    def sendraw(self, msg, priority=False, delay=None):
+    def sendraw(self, msg, priority=False, delay=None, quiet=False):
         if priority:
-            self.msgqueue.appendleft((msg, delay))
+            self.msgqueue.appendleft((msg, delay, quiet))
         else:
-            self.msgqueue.append((msg, delay))
+            self.msgqueue.append((msg, delay, quiet))
 
     def sendmsg(self, name, msg, delay=None):
         for msgline in msg.split("\n"):
@@ -70,10 +70,13 @@ class irc_connection():
             else:
                 msg_delay = self.prevdelay
             if self.msgqueue and time.time() - self.lastsent > msg_delay:
-                msg, delay = self.msgqueue.popleft()
+                msg, delay, quiet = self.msgqueue.popleft()
                 self.lastsent = time.time()
                 self.prevdelay = delay
-                logging.debug(">> {}".format(msg))
+                if quiet:
+                    logging.debug(">> {}".format(msg))
+                else:
+                    logging.info(">> {}".format(msg))
                 self.ircsocket.send(msg.encode("utf-8"))
             # Recieve message
             try:
@@ -83,12 +86,12 @@ class irc_connection():
         return ircmsg.decode("utf-8").strip("\n\r")
 
     def run(self):
-        logging.debug("Listening")
+        logging.info("Listening")
         connected = True
         try:
             while connected:
                 ircmsg = self.process_send_recv()
-                logging.info(ircmsg)
+                logging.debug(ircmsg)
                 matchstr = ":(?P<nick>.*)!(?P<user>.*)@(?P<host>.*) PRIVMSG (?P<sentto>.*) :\.(?P<command>.*)"
                 privmsg = re.match(matchstr, ircmsg)
                 if privmsg is not None:
@@ -99,7 +102,6 @@ class irc_connection():
                                'command': privmsg.group('command'),
                                'raw': ircmsg,
                                'is_priv': privmsg.group('sentto') == self.botnick}
-                    logging.debug("{}:{}:{}".format(message['sentto'], message['nick'], message['command']))
                     response = self.parser.parse_input(message, self.sendmsg)
                     if response is not None:
                         logging.info("{}: {}".format(message['nick'], response))
@@ -109,13 +111,13 @@ class irc_connection():
                 if ircmsg.startswith("ERROR :"):
                     connected = False
         except KeyboardInterrupt:
-            logging.debug("Exiting: KeyboardInterrupt")
+            logging.info("Exiting: KeyboardInterrupt")
         else:
-            logging.debug("Exiting: {},{}".format(connected, ircmsg))
+            logging.info("Exiting: {},{}".format(connected, ircmsg))
         self.disconnect()
 
     def ping(self):
-        self.sendraw("PONG :pingis\n", priority=True)
+        self.sendraw("PONG :pingis\n", priority=True, quiet=True)
 
     def disconnect(self):
         self.ircsocket.shutdown(socket.SHUT_RDWR)

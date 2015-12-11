@@ -132,7 +132,6 @@ class CoupCLIParser(object):
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         except CoupException as e:
             ret = "Error: {0} ".format(e.args[0])
-            logging.warning(ret)
 
         return ret
 

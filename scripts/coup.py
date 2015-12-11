@@ -16,7 +16,7 @@ from gamebot.coup.cli import CoupCLIParser
 
 __author__ = 'jswaro', 'dcolestock'
 
-logging.basicConfig(filename='freenode.log', level=logging.DEBUG)
+logging.basicConfig(filename='freenode.log', level=logging.INFO)
 
 
 def main(channellist, botnick, botpass, server, usessl):

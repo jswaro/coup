@@ -27,7 +27,7 @@ A counter can only be challenged, but a declaration can be countered or challeng
 import random
 
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
-from gamebot.coup.actions import income, foreign_aid, coup, embezzle, convert
+from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
 from gamebot.coup.cli import create_game_parser, join_parser
 from gamebot.coup.player import Player
 from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation, GamePermissionError,\
@@ -77,7 +77,7 @@ class Game(object):
 
     def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]
-        self.valid_player_actions = [income, foreign_aid, coup]
+        self.valid_player_actions = [Income, ForeignAid, Coup]
 
         if self.use_inquisitor:
             cards.append(inquisitor)
@@ -85,7 +85,7 @@ class Game(object):
             cards.append(ambassador)
 
         if self.use_treasury:
-            self.valid_player_actions.extend([embezzle, convert])
+            self.valid_player_actions.extend([Embezzle, Convert])
 
         for card in cards:
             num_cards_each = 3

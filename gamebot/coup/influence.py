@@ -1,4 +1,4 @@
-from gamebot.coup.actions import assassinate, foreign_aid, steal, tax, exchange1, exchange2, examine
+from gamebot.coup.actions import Assassinate, ForeignAid, Steal, Tax, ExchangeTwo, ExchangeOne, Examine
 
 __author__ = 'jswaro'
 
@@ -24,9 +24,9 @@ class Influence(object):
     def __str__(self):
         return self.name
 
-contessa = Influence("Contessa", actions=[], counteractions=[assassinate])
-duke = Influence("Duke", actions=[tax], counteractions=[foreign_aid])
-captain = Influence("Captain", actions=[steal], counteractions=[steal])
-ambassador = Influence("Ambassador", actions=[exchange2], counteractions=[steal])
-assassin = Influence("Assassin", actions=[assassinate], counteractions=[])
-inquisitor = Influence("Inquisitor", actions=[exchange1, examine], counteractions=[steal])
+contessa = Influence("Contessa", actions=[], counteractions=[Assassinate])
+duke = Influence("Duke", actions=[Tax], counteractions=[ForeignAid])
+captain = Influence("Captain", actions=[Steal], counteractions=[Steal])
+ambassador = Influence("Ambassador", actions=[ExchangeTwo], counteractions=[Steal])
+assassin = Influence("Assassin", actions=[Assassinate], counteractions=[])
+inquisitor = Influence("Inquisitor", actions=[ExchangeOne, Examine], counteractions=[Steal])

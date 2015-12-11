@@ -112,7 +112,7 @@ class Assassinate(BaseAction):
 
 class ExchangeOne(BaseAction):
     name = "Exchange"
-    description = "Take 2 cards, return 2 cards to court deck"
+    description = "Take 1 cards, return 1 cards to court deck"
 
     @staticmethod
     def do_success(target, source):
@@ -121,7 +121,7 @@ class ExchangeOne(BaseAction):
 
 class ExchangeTwo(BaseAction):
     name = "Exchange"
-    description = "Take 1 cards, return 1 cards to court deck"
+    description = "Take 2 cards, return 2 cards to court deck"
 
     @staticmethod
     def do_success(target, source):

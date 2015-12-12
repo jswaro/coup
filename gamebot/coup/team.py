@@ -1,7 +1,7 @@
 class Team(object):
     NONE = 0
-    RED = 1
-    BLUE = 2
+    REFORMIST = 1
+    LOYALIST = 2
 
 
 def same_team(target, source):

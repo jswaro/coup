@@ -56,12 +56,12 @@ class CoupGame(BaseGame):
         cards = [contessa, duke, captain, assassin]
         self.valid_player_actions = [Income, ForeignAid, Coup]
 
-        if self.use_inquisitor:
+        if self.inquisitor:
             cards.append(inquisitor)
         else:
             cards.append(ambassador)
 
-        if self.use_treasury:
+        if self.teams:
             self.valid_player_actions.extend([Embezzle, Convert])
 
         for card in cards:
@@ -75,7 +75,7 @@ class CoupGame(BaseGame):
                 self.deck.append(card)
 
             for action in card.actions:
-                self.valid_player_ations.append(action)
+                    self.valid_player_ations.append(action)
 
     def start(self):
         if len(self.players) < 2:

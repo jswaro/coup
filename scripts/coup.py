@@ -12,7 +12,6 @@ sys.path.append(source_dir)
 base_directory = os.path.abspath(os.path.join(source_dir, '..'))
 sys.path.append(base_directory)
 
-import secrets
 from gamebot.logging import log_to_file, log_to_stream
 from gamebot.bots import irc_simple
 from gamebot.coup.game import Instance
@@ -60,15 +59,15 @@ def main(args):
     group = parser.add_argument_group('Bot Options', 'Options that are given directly to the bot')
     group.add_argument('-C', '--channels', action='store',
                        help='name of the IRC channels for the bot to join, comma delimited',
-                       default=",".join(secrets.channellist))
+                       default="#coup")
     group.add_argument('-n', '--nickname', action='store', help='nickname for the bot to use',
-                       default=secrets.botnick)
+                       default='coupbot')
     group.add_argument('-p', '--password', action='store', help='password that the bot will use to authenticate',
-                       default=secrets.botpass)
+                       default='')
     group.add_argument('-s', '--server', action='store', help='IRC server address to connect to',
-                       default=secrets.server)
+                       default='wilhelm.freenode.net')
     group.add_argument('-u', '--use-ssl', action='store_true', dest='ssl', help='enables the use of SSL',
-                       default=secrets.usessl)
+                       default=False)
 
     group = parser.add_argument_group('Logging options', 'Options given to the logging framework')
 

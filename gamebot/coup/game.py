@@ -107,7 +107,7 @@ class CoupGame(BaseGame):
         for x in range(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
 
-        self.active = True
+        self.is_started = True
         self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. "

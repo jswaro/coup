@@ -5,7 +5,7 @@ __author__ = 'jswaro'
 
 class BaseGame(object):
     def __init__(self, instance, game_creator, max_players, parameters):
-        self.active = False
+        self.is_started = False
         self.instance = instance
         self.name = parameters.name
         self.password = parameters.password

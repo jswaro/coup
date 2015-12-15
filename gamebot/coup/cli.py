@@ -109,7 +109,7 @@ class CoupCLIParser(object):
         except GameNotFoundException:
             game = None
 
-        game_active = (game is not None and game.active)
+        game_active = (game is not None and game.is_started)
 
         ret = None
 

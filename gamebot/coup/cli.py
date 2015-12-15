@@ -67,19 +67,16 @@ Once a player is in a game, they may do any of the following commands on their t
 
 A player loses once they have lost all of their influence. At this point, they may leave to join another game.
 """
-import argparse
-import logging
-
-
-from gamebot.coup.exceptions import MalformedCLICommand, InvalidCLICommand, GameNotFoundException, CoupException
+from gamebot.coup.exceptions import InvalidCLICommand, GameNotFoundException, CoupException
 from gamebot.coup.events import completion
+from gamebot.coup.commands import command_list
 
 __author__ = 'jswaro'
 
 
 class CoupCLIParser(object):
     def __init__(self, instance):
-        self.recognized_base_actions = ['create', 'start', 'join', 'list', 'help']
+        self.recognized_base_actions = command_list
 
         self.recognized_game_actions = ['do', 'challenge', 'counter', 'accept', 'status', 'forfeit']
 
@@ -105,17 +102,14 @@ class CoupCLIParser(object):
     def parse_input(self, message, msg_func):
         arguments = message['command'].split()
 
-        action = arguments[0]
+        action = arguments[0].lower()
         user = message['nick']
         try:
             game = self.instance.find_user_game(user)
         except GameNotFoundException:
             game = None
 
-        if game is not None and game.isactive:
-            game_active = True
-        else:
-            game_active = False
+        game_active = (game is not None and game.isstarted)
 
         ret = None
 
@@ -123,10 +117,10 @@ class CoupCLIParser(object):
             action = self.complete_command(action, game_active)
 
             if action in self.recognized_base_actions:
-                ret = self.instance.run_command(action, user, msg_func, arguments[1:])
+                ret = self.recognized_base_actions[action].run(self.instance, user, arguments[1:])
             elif action in self.recognized_game_actions:
                 if game is None:
-                    raise GameNotFoundException("You are not in a gamebot and cannot use {}".format(action))
+                    raise GameNotFoundException("You are not in a game and cannot use {}".format(action))
                 ret = game.run_command(action, user, msg_func, arguments[1:])
             else:
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
@@ -134,25 +128,3 @@ class CoupCLIParser(object):
             ret = "Error: {0} ".format(e.args[0])
 
         return ret
-
-
-class ThrowingArgumentParser(argparse.ArgumentParser):
-    def error(self, message):
-        raise MalformedCLICommand(message)
-
-create_game_parser = ThrowingArgumentParser(prog='.create', add_help=False)
-create_game_parser.add_argument('name', help='The gamebot\'s name. Used for joining')
-create_game_parser.add_argument('-p', '--password', dest='password', help='Set password for private gamebot')
-group = create_game_parser.add_mutually_exclusive_group()
-group.add_argument('-i', '--inq', dest='inquisitor', action='store_true', default=True,
-                   help='Use Inquisitor instead of Ambassador (Default)')
-group.add_argument('-a', '--amb', dest='ambassador', action='store_true', default=False,
-                   help='Use Ambassador instead of Inquisitor')
-create_game_parser.add_argument('-t', '--teams', dest='teams', action='store_true', default=False,
-                                help='Use Teams/Allegiances and the Treasury Reserve')
-create_game_parser.add_argument('-g', '--guess', dest='guessing', action='store_true', default=False,
-                                help='Requires guessing an opponent\'s card to coup or assassinate')
-
-join_parser = ThrowingArgumentParser(prog='.join', add_help=False)
-join_parser.add_argument('name', help='The gamebot name to join')
-join_parser.add_argument('-p', '--password', dest='password', help='The gamebot\'s password')

@@ -28,8 +28,6 @@ import random
 
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
 from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
-from gamebot.coup.cli import create_game_parser, join_parser
-from gamebot.coup.player import Player
 from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation, GamePermissionError,\
     InvalidCLICommand, CoupException
 
@@ -38,7 +36,7 @@ __author__ = 'jswaro'
 
 class Game(object):
     def __init__(self, instance, game_creator, parameters):
-        self.isactive = False
+        self.isstarted = False
         self.instance = instance
         self.name = parameters.name
         self.password = parameters.password
@@ -69,9 +67,9 @@ class Game(object):
 
     def add_player(self, player, password):
         if self.password is not None and password != self.password:
-            raise GamePermissionError("Incorrect password. You may not join this gamebot.")
+            raise GamePermissionError("Incorrect password. You may not join this game.")
         if player.name in self.players:
-            raise GameInvalidOperation("Player {0} is already in the gamebot".format(player.name))
+            raise GameInvalidOperation("Player {0} is already in the game".format(player.name))
 
         self.players[player.name] = player
 
@@ -133,8 +131,8 @@ class Game(object):
         for x in range(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
 
-        self.isactive = True
-        self.broadcast_message("The gamebot has begun. Turn order is {0}.".format(", ".join(turn_order)))
+        self.isstarted = True
+        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. "
                                                               "Please choose an action.")
@@ -159,7 +157,7 @@ class Game(object):
 
     def find_player_by_name(self, name):
         if name not in self.players.keys():
-            raise GameInvalidOperation("You are not part of this gamebot.")
+            raise GameInvalidOperation("You are not part of this game.")
 
         return self.players[name]
 
@@ -234,7 +232,7 @@ class Game(object):
         if target_player.influence_remaining() == 1:
             target_player.kill()
 
-            self.broadcast_message("{0} has lost all their influence. They are out of the gamebot.")
+            self.broadcast_message("{0} has lost all their influence. They are out of the game.")
         else:
             # generate decision event
             # TODO: need to add an event for losing influence
@@ -261,7 +259,7 @@ class Instance(object):
         if not self.game_exists(name):
             self.games[name] = game
         else:
-            raise GameInvalidOperation("A gamebot with this name already exists")
+            raise GameInvalidOperation("A game with this name already exists")
 
     def game_exists(self, name):
         return name in self.games
@@ -277,7 +275,10 @@ class Instance(object):
             if name in self.games[game_name].players:
                 return self.games[game_name]
 
-        raise GameNotFoundException("User {0} does not appear to be in a gamebot".format(name))
+        raise GameNotFoundException("User {0} does not appear to be in a game".format(name))
+
+    def get_stats(self, player_name=None):
+        pass #TODO
 
     def print_games(self):
         if len(self.games.keys()) == 0:
@@ -285,98 +286,3 @@ class Instance(object):
 
         games = [self.games[x].long_name() for x in self.games.keys()]
         return "\n".join(games)
-
-    def run_command(self, action, user, msg_func, arguments):
-        if action == 'create':
-            ret = self.parse_base_create(user, msg_func, arguments)
-        elif action == 'start':
-            ret = self.parse_base_start(user, msg_func, arguments)
-        elif action == 'join':
-            ret = self.parse_base_join(user, msg_func, arguments)
-        elif action == 'list':
-            ret = self.parse_base_list(user, msg_func, arguments)
-        elif action == 'help':
-            ret = self.parse_base_help(user, msg_func, arguments)
-        else:
-            raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
-        return ret
-
-    def parse_base_create(self, user, msg_func, arguments):
-        args = create_game_parser.parse_args(arguments)
-
-        if self.game_exists(args.name):
-            raise InvalidCLICommand("A gamebot with this name already exists")
-
-        game = Game(self, user, args)
-        self.add_game(args.name, game)
-
-        player = Player(user)
-        game.add_player(player, args.password)
-
-        return "Game '{0}' created".format(args.name)
-
-    def parse_base_start(self, user, msg_func, arguments):
-
-        game = self.find_user_game(user)
-
-        if not game.is_creator(user):
-            raise GamePermissionError("Only the owner of the gamebot may start the gamebot")
-
-        game.start()
-
-        return "Game '{0}' started".format(game.name)
-
-    def parse_base_join(self, user, msg_func, arguments):
-        args = join_parser.parse_args(arguments)
-
-        game = self.find_game_by_name(args.name)
-
-        player = Player(user)
-        game.add_player(player, args.password)
-
-        game.broadcast_message(
-            "Game '{}', players ({}): {}".format(args.name, len(game.players), ", ".join(game.players.keys())))
-
-        return "Joined game '{}'".format(args.name, ", ".join(game.players.keys()))
-
-    def parse_base_list(self, user, msg_func, arguments):
-        return self.print_games()
-
-    def parse_base_help(self, user, msg_func, arguments):  # Todo Add other helps
-        if len(arguments) == 0:
-            ret = list([
-                "Bot for playing Coup. Use .help <command> for more information",
-                "Global commands:",
-                " .create <name> [-p password]",
-                " .list",
-                " .join <name> [-p password]",
-                " .start",
-                "Game commands:",
-                " .do income",
-                " .do foreign_aid",
-                " .do coup <player>",
-                " .do tax",
-                " .do steal <player>",
-                " .do assassinate <player>",
-                " .do exchange",
-                " .counter <player> with <role>",
-                " .challenge <player>",
-                " .accept",
-                " .status",
-                " .forfeit"
-            ])
-            return "\n".join(ret)
-
-        if arguments[0][0] == ".":
-            arguments[0] = arguments[0][1:]
-
-        if arguments[0] == 'create':
-            return create_game_parser.format_help()
-        elif arguments[0] == 'list':
-            return "Lists available games"
-        elif arguments[0] == 'join':
-            return join_parser.format_help()
-        elif arguments[0] == 'start':
-            return "starts the gamebot you own"
-        else:
-            return "help not implemented for this command"  # TODO

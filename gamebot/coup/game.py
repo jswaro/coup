@@ -26,22 +26,21 @@ A counter can only be challenged, but a declaration can be countered or challeng
 """
 import random
 
+from gamebot.game import BaseGame
+
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
 from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
-from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation, GamePermissionError,\
-    InvalidCLICommand, CoupException
+from gamebot.coup.exceptions import GameNotFoundException, GameInvalidOperation
 
 __author__ = 'jswaro'
 
 
-class Game(object):
+class CoupGame(BaseGame):
+    PLAYER_LIMIT_BASEGAME = 6
+    PLAYER_LIMIT_EXPANSION = 10
+
     def __init__(self, instance, game_creator, parameters):
-        self.isstarted = False
-        self.instance = instance
-        self.name = parameters.name
-        self.password = parameters.password
-        self.game_creator = game_creator
-        self.max_players = 10
+        super().__init__(instance, game_creator, CoupGame.PLAYER_LIMIT_BASEGAME, parameters)
 
         self.deck = list()
         self.court_deck = list()
@@ -52,26 +51,6 @@ class Game(object):
         self.inquisitor = parameters.inquisitor
         self.teams = parameters.teams  # Todo: To implement
         self.guessing = parameters.guessing  # Todo: To implement
-
-        self.players = dict()
-        self.player_order = list()
-
-        self.current_player = 0
-
-        self.events = list()
-
-        self.stack = list()
-
-        self.messages = list()
-        self.messages_to_send = list()
-
-    def add_player(self, player, password):
-        if self.password is not None and password != self.password:
-            raise GamePermissionError("Incorrect password. You may not join this game.")
-        if player.name in self.players:
-            raise GameInvalidOperation("Player {0} is already in the game".format(player.name))
-
-        self.players[player.name] = player
 
     def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]
@@ -97,9 +76,6 @@ class Game(object):
 
             for action in card.actions:
                 self.valid_player_ations.append(action)
-
-    def is_creator(self, user):
-        return user == self.game_creator
 
     def start(self):
         if len(self.players) < 2:
@@ -131,7 +107,7 @@ class Game(object):
         for x in range(0, len(self.players)):
             turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
 
-        self.isstarted = True
+        self.active = True
         self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. "
@@ -187,68 +163,6 @@ class Game(object):
             face_up.extend(self.players[name].face_up_cards())
 
         return ", ".join(face_up)
-
-    def do_income(self, player, arguments):
-        player.modify_cash(1)
-        self.broadcast_message("{0} took income. {0} has {1} coins.".format(player.name, player.cash()))
-        self.progress_to_next_turn()
-
-    def do_foreign_aid(self, player, arguments):
-        pass  # TODO
-
-    def do_tax(self, player, arguments):
-        pass  # TODO
-
-    def do_steal(self, player, arguments):
-        pass  # TODO
-
-    def do_assassinate(self, player, arguments):
-        pass  # TODO
-
-    def do_exchange2(self, player, arguments):
-        pass  # TODO
-
-    def do_exchange1(self, player, arguments):
-        pass  # TODO
-
-    def do_examine(self, player, arguments):
-        pass  # TODO
-
-    def do_coup(self, player, arguments):
-        if len(arguments) < 2:
-            raise InvalidCLICommand("You need to specify a target for the coup.")
-
-        target = arguments[1]
-
-        target_player = self.find_player_by_name(target)
-
-        if player.cash() < 7:
-            raise GameInvalidOperation("You do not have enough coins to coup. Pick another action.")
-
-        if target_player.dead():
-            raise GameInvalidOperation("Your target is already dead. Shame on you. Pick another action.")
-
-        player.modify_cash(-7)
-        if target_player.influence_remaining() == 1:
-            target_player.kill()
-
-            self.broadcast_message("{0} has lost all their influence. They are out of the game.")
-        else:
-            # generate decision event
-            # TODO: need to add an event for losing influence
-            pass
-
-        self.broadcast_message("The list of current face-up cards are '{0}'.".format(self.face_up_cards()))
-        self.progress_to_next_turn()
-
-    def do_convert(self, player, arguments):
-        pass  # TODO
-
-    def do_embezzle(self, player, arguments):
-        pass  # TODO
-
-    def no_action(self, player, arguments):
-        raise CoupException("Not sure how we got here, but you picked an invalid option")
 
 
 class Instance(object):

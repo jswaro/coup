@@ -3,7 +3,7 @@ from collections import OrderedDict
 from gamebot.coup.parsers import create_parser, start_parser, join_parser, list_parser, stats_parser, help_parser
 from gamebot.coup.exceptions import GamePermissionError, InvalidCLICommand, MalformedCLICommand, GameInvalidOperation
 from gamebot.coup.player import Player
-from gamebot.coup.game import Game
+from gamebot.coup.game import CoupGame
 
 command_list = OrderedDict()
 
@@ -48,7 +48,7 @@ class Create(BaseCommand):
         if instance.game_exists(args.name):
             raise InvalidCLICommand("A game with this name already exists")
 
-        game = Game(instance, user, args)
+        game = CoupGame(instance, user, args)
         instance.add_game(args.name, game)
 
         player = Player(user)

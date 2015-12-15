@@ -5,7 +5,7 @@ __author__ = 'jswaro'
 
 
 class Player(object):
-    def __init__(self, name, team=Team.NONE):
+    def __init__(self, name, team=Team.UNASSIGNED):
         self.name = name
         self.coins = 2
 
@@ -31,7 +31,7 @@ class Player(object):
         return len(self.available_influence)
 
     def kill(self):
-        for x in self.available_influence:
+        for _ in self.available_influence:
             t = self.available_influence.pop()
             self.revealed_influence.append(t)
 
@@ -54,13 +54,15 @@ class Player(object):
         self.coins += amount
 
     def flip_team(self):
-        if self.team == Player.UNASSIGNED:
-            return
+        if self.team == Team.UNASSIGNED:
+            raise GameInvalidOperation("System Error: No team assigned")
 
-        if self.team == Player.RED_TEAM:
-            self.team = Player.BLUE_TEAM
+        if self.team == Team.REFORMIST:
+            self.team = Team.LOYALIST
+        elif self.team == Team.LOYALIST:
+            self.team = Team.REFORMIST
         else:
-            self.team = Player.RED_TEAM
+            raise GameInvalidOperation("System Error: Unknown team assigned")
 
     def get_team(self):
         return self.team

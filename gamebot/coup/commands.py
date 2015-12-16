@@ -1,21 +1,24 @@
-from six import with_metaclass
 from collections import OrderedDict
+
+from six import with_metaclass
+
 from gamebot.coup.parsers import create_parser, start_parser, join_parser, list_parser, stats_parser, help_parser
 from gamebot.coup.exceptions import GamePermissionError, InvalidCLICommand, MalformedCLICommand, GameInvalidOperation
 from gamebot.coup.player import Player
 from gamebot.coup.game import CoupGame
+from gamebot.coup.actions import do_action, response_action, game_action
 
 command_list = OrderedDict()
 
 
-class RegisterCommands(type):
+class RegisterCommand(type):
     def __init__(cls, name, bases, clsdict):
         if len(cls.mro()) > 2:
             command_list[name.lower()] = cls
-        super(RegisterCommands, cls).__init__(name, bases, clsdict)
+        super(RegisterCommand, cls).__init__(name, bases, clsdict)
 
 
-class BaseCommand(with_metaclass(RegisterCommands, object)):
+class BaseCommand(with_metaclass(RegisterCommand, object)):
     parser = None
 
     @classmethod
@@ -118,8 +121,16 @@ class Help(BaseCommand):
                            "Commands:"]
             for command_name, command in command_list.items():
                 output_list.append(" "*3 + command.usage())
-            output_list.append("Actions:")
-            output_list.append("   TODO")  # TODO
+            output_list.append("In-game actions:")
+            output_list.append("   Turn actions:")
+            for action in do_action:
+                output_list.append(" "*6 + ".do " + action.name.lower().replace(" ", "_"))
+            output_list.append("   Response actions:")
+            for action in response_action:
+                output_list.append(" "*6 + "." + action.name.lower().replace(" ", "_"))
+            output_list.append("   Game actions:")
+            for action in game_action:
+                output_list.append(" "*6 + "." + action.name.lower().replace(" ", "_"))
             return "\n".join(output_list)
         else:
             if args.command not in command_list:

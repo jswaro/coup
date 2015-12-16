@@ -2,3 +2,4 @@
 .ideas
 secrets.py
 freenode.log
+*.yaml

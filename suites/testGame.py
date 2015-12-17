@@ -2,6 +2,13 @@ import unittest
 from argparse import Namespace
 
 from gamebot.game import BaseGame
+from gamebot.game.player import BasePlayer
+from gamebot.game.team import BaseTeam
+
+from gamebot.coup.exceptions import GameInvalidOperation, GamePermissionError
+
+from suites.testPlayer import TestTeam
+
 
 base_parameters = {'name': 'testgame',
                    'password': 'pass'}
@@ -19,4 +26,22 @@ class BaseGameTester(unittest.TestCase):
         self.assertTrue(game.game_creator == default_user)
         self.assertTrue(game.name == args.name)
         self.assertTrue(game.password == args.password)
+
+    def test_add_player(self):
+        instance = 'x'
+        game = BaseGame(instance, default_user, default_players, args)
+
+        player = BasePlayer(default_user)
+        other_player = BasePlayer('some guy')
+
+        game.add_player(player, args.password)
+
+        with self.assertRaises(GamePermissionError) as exception:
+            game.add_player(other_player, 'bad password')
+
+        with self.assertRaises(GameInvalidOperation) as exception:
+            game.add_player(player, args.password)
+
+        with self.assertRaises(RuntimeError) as exception:
+            game.add_player('x', args.password)
 

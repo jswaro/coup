@@ -1,18 +1,18 @@
 from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.team import Team
+from gamebot.game.player import BasePlayer
 
 __author__ = 'jswaro'
 
 
-class Player(object):
+class Player(BasePlayer):
     def __init__(self, name, team=Team.UNASSIGNED):
-        self.name = name
+        super().__init__(name, team)
+
         self.coins = 2
 
         self.available_influence = list()
         self.revealed_influence = list()
-
-        self.team = team
 
     def give_card(self, card):
         self.available_influence.append(card)
@@ -63,6 +63,3 @@ class Player(object):
             self.team = Team.REFORMIST
         else:
             raise GameInvalidOperation("System Error: Unknown team assigned")
-
-    def get_team(self):
-        return self.team

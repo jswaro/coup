@@ -1,5 +1,5 @@
 from gamebot.coup.exceptions import GameInvalidOperation, GamePermissionError
-
+from gamebot.game.player import BasePlayer
 __author__ = 'jswaro'
 
 
@@ -25,6 +25,9 @@ class BaseGame(object):
         self.messages_to_send = list()
 
     def add_player(self, player, password):
+        if not isinstance(player, BasePlayer):
+            raise RuntimeError("player object is not of type BasePlayer or a subclass of")
+
         if self.password is not None and password != self.password:
             raise GamePermissionError("Incorrect password. You may not join this game.")
         if player.name in self.players:

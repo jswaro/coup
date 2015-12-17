@@ -8,4 +8,4 @@ cd $DIR
 
 echo $P
 
-PYTHONPATH=$P python -m unittest discover -s suites
+PYTHONPATH=$P python -m unittest discover -s suites $@

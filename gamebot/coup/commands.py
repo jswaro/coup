@@ -80,8 +80,6 @@ class Join(BaseCommand):
     @staticmethod
     def process_args(instance, user, args):
         game = instance.find_game_by_name(args.name)
-        if game.is_started:
-            return GameInvalidOperation("Game already started")
 
         player = Player(user)
         game.add_player(player, args.password)

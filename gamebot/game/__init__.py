@@ -4,12 +4,13 @@ __author__ = 'jswaro'
 
 
 class BaseGame(object):
-    def __init__(self, instance, game_creator, max_players, parameters):
+    def __init__(self, instance, game_creator, room_name, max_players, parameters):
         self.is_started = False
         self.instance = instance
         self.name = parameters.name
         self.password = parameters.password
         self.game_creator = game_creator
+        self.room_name = room_name
         self.max_players = max_players
 
         self.players = dict()
@@ -30,8 +31,15 @@ class BaseGame(object):
 
         if self.password is not None and password != self.password:
             raise GamePermissionError("Incorrect password. You may not join this game.")
+
+        if self.is_started:
+            raise GameInvalidOperation("Game already started.")
+
         if player.name in self.players:
-            raise GameInvalidOperation("Player {0} is already in the game".format(player.name))
+            raise GameInvalidOperation("Player {0} is already in the game.".format(player.name))
+
+        if len(self.players) == self.max_players:
+            raise GameInvalidOperation("No more room, already full.")
 
         self.players[player.name] = player
 
@@ -75,3 +83,9 @@ class BaseGame(object):
                 self.advance_to_next_player()
 
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
+
+    def add_message_to_queue(self, player_name, message):
+        self.instance.msgqueue.append(("private message", player_name, message))
+
+    def broadcast_message(self, message):
+        self.instance.msgqueue.append(("game message", self.room_name, message))

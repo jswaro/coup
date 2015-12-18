@@ -37,11 +37,10 @@ __author__ = 'jswaro'
 
 
 class CoupGame(BaseGame):
-    PLAYER_LIMIT_BASEGAME = 6
-    PLAYER_LIMIT_EXPANSION = 10
+    PLAYER_LIMIT = 10
 
     def __init__(self, instance, game_creator, parameters):
-        super().__init__(instance, game_creator, CoupGame.PLAYER_LIMIT_BASEGAME, parameters)
+        super().__init__(instance, game_creator, CoupGame.PLAYER_LIMIT, parameters)
 
         self.deck = list()
         self.court_deck = list()
@@ -113,8 +112,6 @@ class CoupGame(BaseGame):
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. "
                                                               "Please choose an action.")
-
-        self.process_outbound_messages()
 
     def current_player_name(self):
         return self.player_order[self.current_player]

@@ -64,6 +64,17 @@ class irc_connection():
         default_msg_delay = .5  # seconds of delay between messages
         ircmsg = None
         while ircmsg is None:
+            # Process game's message queue
+            if not self.msgqueue and self.parser.instance.msgqueue:
+                msg_type, name, msg = self.parser.instance.msgqueue.popleft()
+                if msg_type in ("private message", "game message"):
+                    self.sendmsg(self, name, msg)
+                if msg_type == "invite":
+                    pass  # TODO
+                if msg_type == "create room":
+                    pass  # TODO
+                else:
+                    logging.error("Unrecognized message type: {}, {}, {}".format(msg_type, name, msg))
             # Send message
             if self.prevdelay is None:
                 msg_delay = default_msg_delay
@@ -75,7 +86,7 @@ class irc_connection():
                 self.prevdelay = delay
                 logging.debug(">> {}".format(msg))
                 self.ircsocket.send(msg.encode("utf-8"))
-            # Recieve message
+            # Receive message
             try:
                 ircmsg = self.ircsocket.recv(2048)
             except socket.error:

@@ -111,7 +111,7 @@ class irc_connection():
                                'raw': ircmsg,
                                'is_priv': privmsg.group('sentto') == self.botnick}
                     logging.info("{} << .{}".format(message['nick'], message['command']))
-                    response = self.parser.parse_input(message, self.sendmsg)
+                    response = self.parser.parse_input(message)
                     if response is not None:
                         logging.info("{} >> {}".format(message['nick'], response))
                         self.sendmsg(message['nick'], response)

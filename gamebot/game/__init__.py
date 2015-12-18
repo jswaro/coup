@@ -89,3 +89,6 @@ class BaseGame(object):
 
     def broadcast_message(self, message):
         self.instance.msgqueue.append(("game message", self.room_name, message))
+
+    def run_command(self):
+        pass  # TODO

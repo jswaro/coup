@@ -99,7 +99,7 @@ class CoupCLIParser(object):
                 action = action_comp[0]
         return action
 
-    def parse_input(self, message, msg_func):
+    def parse_input(self, message):
         arguments = message['command'].split()
 
         action = arguments[0].lower()
@@ -121,7 +121,7 @@ class CoupCLIParser(object):
             elif action in self.recognized_game_actions:
                 if game is None:
                     raise GameNotFoundException("You are not in a game and cannot use {}".format(action))
-                ret = game.run_command(action, user, msg_func, arguments[1:])
+                ret = game.run_command(action, user, arguments[1:])
             else:
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         except CoupException as e:

@@ -4,13 +4,12 @@ __author__ = 'jswaro'
 
 
 class BaseGame(object):
-    def __init__(self, instance, game_creator, room_name, max_players, parameters):
+    def __init__(self, instance, game_creator, max_players, parameters):
         self.is_started = False
         self.instance = instance
         self.name = parameters.name
         self.password = parameters.password
         self.game_creator = game_creator
-        self.room_name = room_name
         self.max_players = max_players
 
         self.players = dict()
@@ -24,6 +23,11 @@ class BaseGame(object):
 
         self.messages = list()
         self.messages_to_send = list()
+
+        self.instance.msgqueue.append(("create room", self.name))
+
+    def __del__(self):
+        self.instance.msgqueue.append(("destroy room", self.name))
 
     def add_player(self, player, password):
         if not isinstance(player, BasePlayer):
@@ -42,6 +46,7 @@ class BaseGame(object):
             raise GameInvalidOperation("No more room, already full.")
 
         self.players[player.name] = player
+        self.instance.msgqueue.append(("invite", (player.name, self.name)))
 
     def is_creator(self, user):
         return user == self.game_creator
@@ -85,10 +90,10 @@ class BaseGame(object):
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
 
     def add_message_to_queue(self, player_name, message):
-        self.instance.msgqueue.append(("private message", player_name, message))
+        self.instance.msgqueue.append(("private message", (player_name, message)))
 
     def broadcast_message(self, message):
-        self.instance.msgqueue.append(("game message", self.room_name, message))
+        self.instance.msgqueue.append(("game message", (self.name, message)))
 
     def run_command(self):
         pass  # TODO

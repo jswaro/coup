@@ -31,8 +31,14 @@ class irc_connection():
             self.ircsocket.connect((server, port))
         self.ircsocket.setblocking(False)
         self.identify(botnick, botpass)
+        self.game_rooms = []
         for channel in channellist:
             self.joinchan(channel)
+        for game_number in range(1,11):
+            game_room_name = "{}_gameroom_{}".format(channellist[0], game_number)
+            self.game_rooms.append(game_room_name)
+            self.joinchan(game_room_name)
+        self.assigned_game_rooms = {}
 
     def sendraw(self, msg, priority=False, delay=None):
         if priority:
@@ -46,7 +52,26 @@ class irc_connection():
                 self.sendraw("PRIVMSG {} :{}\n".format(name, msgline), delay=delay)
 
     def joinchan(self, channel):
-        self.sendraw("JOIN " + channel + "\n")
+        self.sendraw("JOIN {}\n".format(channel))
+
+    def invitechan(self, name, channel):
+        self.sendraw("INVITE {} {}\n".format(name, channel))
+
+    def create_room(self, game_name):
+        assigned_room = self.game_rooms.pop()  # Todo: handle running out of rooms
+        self.assigned_game_rooms[game_name] = assigned_room
+        logging.debug("Assigning room {}: {}".format(assigned_room, game_name))
+
+    def add_player(self, name, game_name):
+        assigned_room = self.assigned_game_rooms[game_name]
+        self.invitechan(name, assigned_room)
+        logging.debug("Adding player room {}: {}".format(assigned_room, name))
+
+    def destroy_room(self, game_name):
+        assigned_room = self.assigned_game_rooms[game_name]
+        del self.assigned_game_rooms[game_name]
+        self.game_rooms.append(assigned_room)
+        logging.debug("Clearing room {}: {}".format(assigned_room, game_name))
 
     def identify(self, nick, password):
         self.sendraw("USER {0} {0} {0} {0}\n".format(nick))
@@ -66,15 +91,24 @@ class irc_connection():
         while ircmsg is None:
             # Process game's message queue
             if not self.msgqueue and self.parser.instance.msgqueue:
-                msg_type, name, msg = self.parser.instance.msgqueue.popleft()
-                if msg_type in ("private message", "game message"):
-                    self.sendmsg(self, name, msg)
-                if msg_type == "invite":
-                    pass  # TODO
-                if msg_type == "create room":
-                    pass  # TODO
+                msg_type, payload = self.parser.instance.msgqueue.popleft()
+                if msg_type == "private message":
+                    name, msg = payload
+                    self.sendmsg(name, msg)
+                elif msg_type == "game message":
+                    name, msg = payload
+                    irc_room = self.assigned_game_rooms[name]
+                    self.sendmsg(irc_room, msg)
+                elif msg_type == "create room":
+                    self.create_room(payload)
+                elif msg_type == "invite":
+                    name, game_name = payload
+                    self.add_player(name, game_name)
+                elif msg_type == "destroy room":
+                    self.destroy_room(payload)
                 else:
-                    logging.error("Unrecognized message type: {}, {}, {}".format(msg_type, name, msg))
+                    logging.error("Unrecognized queue event type: {}, {}, {}".format(msg_type, name, msg))
+                    raise TypeError
             # Send message
             if self.prevdelay is None:
                 msg_delay = default_msg_delay

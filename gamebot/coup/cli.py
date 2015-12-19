@@ -93,7 +93,7 @@ class CoupCLIParser(object):
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
             elif len(action_comp) > 1:
                 raise InvalidCLICommand(
-                    "Ambigious command: {}. Maybe you meant {}. Type"
+                    "Ambiguous command: {}. Maybe you meant {}. Type"
                     " .help for available options".format(action, ' or '.join(action_comp)))
             else:
                 action = action_comp[0]

@@ -46,6 +46,7 @@ class BaseGame(object):
             raise GameInvalidOperation("No more room, already full.")
 
         self.players[player.name] = player
+        self.player_order.append(player.name)
         self.instance.msgqueue.append(("invite", (player.name, self.name)))
 
     def is_creator(self, user):
@@ -55,6 +56,9 @@ class BaseGame(object):
         raise NotImplementedError
 
     def current_player_name(self):
+        if len(self.player_order) == 0:
+            raise GameInvalidOperation('There are no players in this game yet')
+
         return self.player_order[self.current_player]
 
     def long_name(self):

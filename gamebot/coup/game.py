@@ -111,9 +111,6 @@ class CoupGame(BaseGame):
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. Please choose an action.")
 
-    def current_player_name(self):
-        return self.player_order[self.current_player]
-
     def long_name(self):
         if self.password is None:
             return self.name

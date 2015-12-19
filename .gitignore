@@ -1,5 +1,4 @@
 *.py[cod]
 .ideas
-secrets.py
-freenode.log
+*.log
 *.yaml

@@ -37,11 +37,10 @@ __author__ = 'jswaro'
 
 
 class CoupGame(BaseGame):
-    PLAYER_LIMIT_BASEGAME = 6
-    PLAYER_LIMIT_EXPANSION = 10
+    PLAYER_LIMIT = 10
 
     def __init__(self, instance, game_creator, parameters):
-        super().__init__(instance, game_creator, CoupGame.PLAYER_LIMIT_BASEGAME, parameters)
+        super().__init__(instance, game_creator, CoupGame.PLAYER_LIMIT, parameters)
 
         self.deck = list()
         self.court_deck = list()
@@ -76,14 +75,16 @@ class CoupGame(BaseGame):
                 self.deck.append(card)
 
             for action in card.actions:
-                    self.valid_player_ations.append(action)
+                    self.valid_player_actions.append(action)
 
     def start(self):
         if len(self.players) < 2:
             raise GameInvalidOperation("Not enough players to start yet")
 
-        # make a random player the first player
-        self.current_player = random.randint(0, len(self.players) - 1)
+        # Randomize player order
+        self.player_order = list(self.players.keys())
+        random.shuffle(self.player_order)
+        self.current_player = 0
 
         # create the deck
         self.populate_deck_and_actions()
@@ -99,22 +100,16 @@ class CoupGame(BaseGame):
             current.give_card(self.deck.pop())
             current.give_card(self.deck.pop())
 
+            card_list_msg = " and ".join([card.short_description() for card in current.available_influence])
+            self.add_message_to_queue(name, "You have {}.".format(card_list_msg))
+
         # put the remaining cards into the court deck
         self.court_deck = list(self.deck)
 
-        self.player_order = self.players.keys()
-
-        turn_order = list()
-        for x in range(0, len(self.players)):
-            turn_order.append(self.player_order[(self.current_player + x) % len(self.players)])
-
         self.is_started = True
-        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(turn_order)))
+        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(self.player_order)))
 
-        self.add_message_to_queue(self.current_player_name(), "You are the first player. "
-                                                              "Please choose an action.")
-
-        self.process_outbound_messages()
+        self.add_message_to_queue(self.current_player_name(), "You are the first player. Please choose an action.")
 
     def current_player_name(self):
         return self.player_order[self.current_player]

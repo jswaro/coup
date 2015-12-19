@@ -1,9 +1,12 @@
+from collections import deque
+
 from gamebot.coup.exceptions import GameInvalidOperation, GameNotFoundException
 
 
 class BaseInstance(object):
     def __init__(self):
         self.games = dict()
+        self.msgqueue = deque()
 
     def add_game(self, name, game):
         if not self.game_exists(name):

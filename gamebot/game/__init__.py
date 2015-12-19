@@ -24,16 +24,29 @@ class BaseGame(object):
         self.messages = list()
         self.messages_to_send = list()
 
+        self.instance.msgqueue.append(("create room", self.name))
+
+    def __del__(self):
+        self.instance.msgqueue.append(("destroy room", self.name))
+
     def add_player(self, player, password):
         if not isinstance(player, BasePlayer):
             raise RuntimeError("player object is not of type BasePlayer or a subclass of")
 
         if self.password is not None and password != self.password:
             raise GamePermissionError("Incorrect password. You may not join this game.")
+
+        if self.is_started:
+            raise GameInvalidOperation("Game already started.")
+
         if player.name in self.players:
-            raise GameInvalidOperation("Player {0} is already in the game".format(player.name))
+            raise GameInvalidOperation("Player {0} is already in the game.".format(player.name))
+
+        if len(self.players) == self.max_players:
+            raise GameInvalidOperation("No more room, already full.")
 
         self.players[player.name] = player
+        self.instance.msgqueue.append(("invite", (player.name, self.name)))
 
     def is_creator(self, user):
         return user == self.game_creator
@@ -75,3 +88,12 @@ class BaseGame(object):
                 self.advance_to_next_player()
 
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
+
+    def add_message_to_queue(self, player_name, message):
+        self.instance.msgqueue.append(("private message", (player_name, message)))
+
+    def broadcast_message(self, message):
+        self.instance.msgqueue.append(("game message", (self.name, message)))
+
+    def run_command(self):
+        pass  # TODO

@@ -32,6 +32,7 @@ from gamebot.game.instance import BaseInstance
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
 from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
 from gamebot.coup.exceptions import GameInvalidOperation
+from gamebot.coup.actions import response_action, game_action
 
 __author__ = 'jswaro'
 
@@ -119,10 +120,10 @@ class CoupGame(BaseGame):
 
     def get_action_by_name(self, name):
         for action in self.valid_player_actions:
-            if name == action.name:
+            if name.lower() == action.command_name():
                 return action
-        return GameInvalidOperation("You have picked an invalid option. "
-                                    "Please choose from {0}.".format(", ".join(self.valid_player_actions)))
+        raise GameInvalidOperation("You have picked an invalid option. "
+                                    "Please choose from {0}.".format(", ".join(self.valid_player_actions.command_name())))
 
     def find_player_by_name(self, name):
         if name not in self.players.keys():
@@ -156,6 +157,15 @@ class CoupGame(BaseGame):
             face_up.extend(self.players[name].face_up_cards())
 
         return ", ".join(face_up)
+
+    def run_command(self, action, user, arguments):
+        if action.lower() == 'do':
+            if not self.my_turn(user):
+                raise GameInvalidOperation("Not your turn")
+            action = self.get_action_by_name(arguments[0])
+        elif action in response_action:
+            pass
+
 
 
 class Instance(BaseInstance):

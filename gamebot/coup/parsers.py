@@ -33,3 +33,46 @@ stats_parser.add_argument('player', help='The player name to lookup', nargs='?')
 
 help_parser = ThrowingArgumentParser(prog='.help', add_help=False, description="Help info on a command or action")
 help_parser.add_argument('command', help='The command or action to lookup', nargs='?')
+
+do_parser = ThrowingArgumentParser(prog='.do', add_help=False, description="Main turn actions")
+do_subparser = do_parser.add_subparsers()
+
+income_parser = do_subparser.add_parser('income', add_help=False)
+foreign_aid_parser = do_subparser.add_parser('foreign_aid', add_help=False)
+tax_parser = do_subparser.add_parser('tax', add_help=False)
+embezzle_parser = do_subparser.add_parser('embezzle', add_help=False)
+exchange_parser = do_subparser.add_parser('exchange', add_help=False)
+
+steal_parser = do_subparser.add_parser('steal', add_help=False)
+steal_parser.add_argument('player')
+
+examine_parser = do_subparser.add_parser('examine', add_help=False)
+examine_parser.add_argument('player')
+
+convert_parser = do_subparser.add_parser('convert', add_help=False)
+convert_parser.add_argument('player')
+
+assassinate_parser = do_subparser.add_parser('assassinate', add_help=False)
+assassinate_parser.add_argument('player')
+assassinate_parser.add_argument('guess', nargs='?')
+
+coup_parser = do_subparser.add_parser('coup', add_help=False)
+coup_parser.add_argument('player')
+coup_parser.add_argument('guess', nargs='?')
+
+counter_parser = ThrowingArgumentParser(prog='.counter', add_help=False)
+counter_parser.add_argument('with_role', nargs='?')
+
+challenge_parser = ThrowingArgumentParser(prog='.challenge', add_help=False)
+challenge_parser.add_argument('player')
+
+accept_parser = ThrowingArgumentParser(prog='.accept', add_help=False)
+
+keep_parser = ThrowingArgumentParser(prog='.keep', add_help=False)
+keep_parser.add_argument('cards', nargs='*')
+
+change_parser = ThrowingArgumentParser(prog='.change', add_help=False)
+
+status_parser = ThrowingArgumentParser(prog='.status', add_help=False)
+
+forfeit_parser = ThrowingArgumentParser(prog='.forfeit', add_help=False)

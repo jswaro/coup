@@ -78,6 +78,7 @@ class irc_connection():
     def create_room(self, game_name):
         assigned_room = self.game_rooms.popleft()  # Todo: handle running out of rooms
         self.assigned_game_rooms[game_name] = assigned_room
+        # Todo: add game options to topic
         self.sendmsg("chanserv", "TOPIC {} Coup game {}: Hosted by ".format(assigned_room, game_name, self.botnick))
         logging.debug("Assigning room {}: {}".format(assigned_room, game_name))
 

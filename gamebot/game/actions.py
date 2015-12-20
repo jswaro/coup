@@ -10,6 +10,10 @@ class BaseAction(object):
     def __str__(cls):
         return cls.name
 
+    @classmethod
+    def command_name(cls):
+        return cls.name.lower().substitute(" ", "_")
+
     @staticmethod
     def do_success(target, source):
         pass

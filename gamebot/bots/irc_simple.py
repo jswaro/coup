@@ -10,6 +10,11 @@ from collections import deque
 
 class irc_connection():
     def __init__(self, parser, channellist, botnick, botpass=None, server='chat.freenode.net', usessl=True, port=None):
+
+        # First time running the bot considering using register = True to take care of some irc setup automatically
+        register = False
+        email = ""
+
         if port is None:
             if usessl:
                 port = 6697
@@ -30,14 +35,24 @@ class irc_connection():
             self.ircsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.ircsocket.connect((server, port))
         self.ircsocket.setblocking(False)
+        if register:
+            self.sendmsg("nickserv", "register {} {}".format(botpass, email))
+            self.sendmsg("nickserv", "set enforce on")
         self.identify(botnick, botpass)
         self.game_rooms = []
         for channel in channellist:
+            if channel[0] != '#':
+                raise SyntaxError("Channel names must start with #")
             self.joinchan(channel)
-        for game_number in range(1,11):
-            game_room_name = "{}_gameroom_{}".format(channellist[0], game_number)
+        for game_number in range(1, 11):
+            # Non-primary rooms start with ##, as specified by irc standards
+            game_room_name = "#{}_gameroom_{}".format(channellist[0], game_number)
             self.game_rooms.append(game_room_name)
             self.joinchan(game_room_name)
+            if register:
+                self.sendmsg("chanserv", "register {}".format(game_room_name), delay=1)
+                self.sendmsg("chanserv", "FLAGS {} {} +O".format(game_room_name, botnick), delay=1)
+                self.modes(game_room_name, "+r")
         self.assigned_game_rooms = {}
 
     def sendraw(self, msg, priority=False, delay=None):
@@ -55,11 +70,15 @@ class irc_connection():
         self.sendraw("JOIN {}\n".format(channel))
 
     def invitechan(self, name, channel):
-        self.sendraw("INVITE {} {}\n".format(name, channel))
+        self.sendraw("INVITE {} {}\n".format(name, channel), delay=1)
+
+    def modes(self, channel, mode):
+        self.sendraw("MODE {} {}\n".format(channel, mode), delay=2)
 
     def create_room(self, game_name):
-        assigned_room = self.game_rooms.pop()  # Todo: handle running out of rooms
+        assigned_room = self.game_rooms.popleft()  # Todo: handle running out of rooms
         self.assigned_game_rooms[game_name] = assigned_room
+        self.sendmsg("chanserv", "TOPIC {} Coup game {}: Hosted by ".format(assigned_room, game_name, self.botnick))
         logging.debug("Assigning room {}: {}".format(assigned_room, game_name))
 
     def add_player(self, name, game_name):

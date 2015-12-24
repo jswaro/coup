@@ -10,6 +10,7 @@ from collections import deque
 
 class irc_connection():
     def __init__(self, parser, channellist, botnick, botpass=None, server='chat.freenode.net', usessl=True, port=None):
+        print(parser, channellist, botnick, botpass, server, usessl, port)
 
         # First time running the bot considering using register = True to take care of some irc setup automatically
         register = False
@@ -30,6 +31,7 @@ class irc_connection():
         if usessl:
             raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.ircsocket = ssl.wrap_socket(raw_socket)
+            print((server, port))
             self.ircsocket.connect((server, port))
         else:
             self.ircsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

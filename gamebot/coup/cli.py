@@ -72,8 +72,6 @@ from gamebot.coup.events import completion
 from gamebot.coup.commands import command_list
 from gamebot.coup.parsers import command_parser
 
-__author__ = 'jswaro'
-
 
 class CoupCLIParser(object):
     def __init__(self, instance):

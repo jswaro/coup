@@ -2,8 +2,6 @@ from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.team import Team
 from gamebot.game.player import BasePlayer
 
-__author__ = 'jswaro'
-
 
 class Player(BasePlayer):
     def __init__(self, name, team=Team.UNASSIGNED):

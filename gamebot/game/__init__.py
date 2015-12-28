@@ -1,6 +1,5 @@
 from gamebot.coup.exceptions import GameInvalidOperation, GamePermissionError
 from gamebot.game.player import BasePlayer
-__author__ = 'jswaro'
 
 
 class BaseGame(object):

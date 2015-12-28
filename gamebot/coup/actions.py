@@ -1,9 +1,7 @@
 from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.team import same_team
 from gamebot.game.actions import BaseAction
-from gamebot.coup.events import event_queue
 
-__author__ = 'jswaro'
 
 do_action = []
 response_action = []
@@ -42,17 +40,14 @@ class Income(CoupAction):
     name = "Income"
     description = "Take 1 coin"
 
-    @staticmethod
-    def run(game, target, source):
-        game.broadcast_message("{} takes an income of 1 coin".format(source))
+    def run(self, game, target, source):
+        game.broadcast_message("{} takes income for 1 coin".format(source))
+        responses = []
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
         source.modify_coins_by_action(1)
-
-    @staticmethod
-    def do_failure(target, source):
-        raise GameInvalidOperation('Income cannot be prevented')
 
 
 @action_register(do_action)
@@ -60,9 +55,10 @@ class ForeignAid(CoupAction):
     name = "Foreign Aid"
     description = "Take 2 coins"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} takes an foreign aid of 2 coins".format(source)
+    def run(self, game, target, source):
+        game.broadcast_message("{} takes foreign aid for 2 coins".format(source))
+        responses = [Counter]  # TODO: teammates cannot counter
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
@@ -74,9 +70,10 @@ class Tax(CoupAction):
     name = "Tax"
     description = "Take 3 coins"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} takes an tax of 3 coins".format(source)
+    def run(self, game, target, source):
+        game.broadcast_message("{} takes tax for 3 coins".format(source))
+        responses = [Challenge]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
@@ -88,18 +85,25 @@ class Steal(CoupAction):
     name = "Steal"
     description = "Take 2 coins from another player"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} steals 2 coins from {}".format(source, target)
+    def run(self, game, target, source):
+        if target == source:
+            raise GameInvalidOperation("Cannot steal from yourself. Choose a different action")
+        if target.dead():
+            raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
+        if same_team(target, source):
+            raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
+        if target.cash() < 1:
+            raise GameInvalidOperation("{} has no cash. Choose a different action".format(target))
+        cash_to_steal = max(target.cash(), 2)
+        game.broadcast_message("{} steals {} coins from {}".format(source, cash_to_steal, target))
+        responses = [Challenge, Counter, Accept]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
-        source.modify_coins_by_action(2)
-        target.modify_coins_by_action(-2)
-
-    @staticmethod
-    def valid_action(target, source):
-        return not same_team(target, source)
+        cash_to_steal = max(target.cash(), 2)
+        source.modify_coins_by_action(cash_to_steal)
+        target.modify_coins_by_action(-cash_to_steal)
 
 
 @action_register(do_action)
@@ -107,28 +111,21 @@ class Assassinate(CoupAction):
     name = "Assassinate"
     description = "Pay 3 coins, choose player to lose influence"
 
-    @staticmethod
-    def announce(target, source):
-        # TODO no need to select if only 1 left
-        return "{} assassinates {}. {}, please select an influence to lose (example: select 1)".format(source, target, target)
+    def run(self, game, target, source):
+        if target == source:
+            raise GameInvalidOperation("Cannot assassinate from yourself. Choose a different action")
+        if target.dead():
+            raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
+        if same_team(target, source):
+            raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
+        source.modify_coins(-3)
+        game.broadcast_message("{} assassinates {}".format(source, target))
+        responses = [Challenge, Counter, Select, Accept]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
-        source.modify_coins(-3)
         raise NotImplementedError
-
-    @staticmethod
-    def do_failure(target, source):
-        source.modify_coins(-3)
-
-    @staticmethod
-    def valid_action(target, source):
-        if target.dead():
-            return False
-        if target == source:
-            return False
-
-        return not same_team(target, source)
 
 
 @action_register(do_action)
@@ -136,9 +133,10 @@ class ExchangeOne(CoupAction):
     name = "Exchange"
     description = "Take 1 cards, return 1 cards to court deck"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} draws an influence card.  Must return 1 to the deck.".format(source)
+    def run(self, game, target, source):
+        game.broadcast_message("{} exchanges influence; draws an influence card".format(source))
+        responses = [Challenge]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
@@ -150,9 +148,10 @@ class ExchangeTwo(CoupAction):
     name = "Exchange"
     description = "Take 2 cards, return 2 cards to court deck"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} draws two influence card.  Must return two to the deck.".format(source)
+    def run(self, game, target, source):
+        game.broadcast_message("{} exchanges influence; draws two influence cards".format(source))
+        responses = [Challenge]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
@@ -164,9 +163,16 @@ class Examine(CoupAction):
     name = "Examine"
     description = "Choose player; look at one card, may force Exchange"
 
-    @staticmethod
-    def announce(target, source):
-        return "{} examines one of {}'s cards.  {}, please select a card (example: select 1).".format(source, target, target)
+    def run(self, game, target, source):
+        if target == source:
+            raise GameInvalidOperation("Cannot examine from yourself. Choose a different action")
+        if target.dead():
+            raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
+        if same_team(target, source):
+            raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
+        game.broadcast_message("{} examines one of {}'s cards".format(source, target))
+        responses = [Challenge, Counter, Select, Accept]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
@@ -178,19 +184,21 @@ class Coup(CoupAction):
     name = "Coup"
     description = "Pay 7 coins, choose player to lose influence"
 
-    @staticmethod
-    def announce(target, source):
-        # TODO no need to select if only 1 left
-        return "{} coups {}. {}, please select an influence to lose (example: select 1)".format(source, target, target)
+    def run(self, game, target, source):
+        if target == source:
+            raise GameInvalidOperation("Cannot coup from yourself. Choose a different action")
+        if target.dead():
+            raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
+        if same_team(target, source):
+            raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
+        source.modify_coins(-7)
+        game.broadcast_message("{} coups {}".format(source, target))
+        responses = []
+        game.eventqueue.add(self, responses)
 
     @staticmethod
     def do_success(target, source):
-        source.modify_coins_by_action(-7)
         raise NotImplementedError
-
-    @staticmethod
-    def valid_action(target, source):
-        return not same_team(target, source)
 
 
 @action_register(do_action)
@@ -198,18 +206,20 @@ class Convert(CoupAction):
     name = "Convert"
     description = "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve"
 
-    @staticmethod
-    def announce(target, source):
-        # TODO no need to select if only 1 left
-        return "{} changes {}'s allegiance".format(source, target)
-
-    @staticmethod
-    def do_success(target, source):
+    def run(self, game, target, source):
+        if target.dead():
+            raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
         cost = 1
         if target != source:
             cost = 2
 
-        source.modify_coins_by_action(cost)
+        source.modify_coins(-cost)
+        game.broadcast_message("{} changes {}'s allegiance".format(source, target))
+        responses = []
+        game.eventqueue.add(self, responses)
+
+    @staticmethod
+    def do_success(target, source):
         target.flip_team()
 
 
@@ -218,14 +228,16 @@ class Embezzle(CoupAction):
     name = "Embezzle"
     description = "Take all coins from Treasury Reserve"
 
-    @staticmethod
-    def announce(target, source):
-        # TODO no need to select if only 1 left
-        return "{} takes all coins from the treasury".format(source)
+    def run(self, game, target, source):
+        coins = game.treasury
+        game.broadcast_message("{} takes coins from the treasury.  Gains {} coins.".format(source, coins))
+        responses = [Challenge]
+        game.eventqueue.add(self, responses)
 
     @staticmethod
-    def do_success(target, source):
-        raise NotImplementedError
+    def do_success(game, target, source):
+        source.modify_coin_by_action(game.treasury)
+        game.treasury = 0
 
 
 # Response Actions

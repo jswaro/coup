@@ -1,4 +1,3 @@
-__author__ = "jswaro"
 
 
 class CoupException(Exception):

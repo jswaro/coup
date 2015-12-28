@@ -33,8 +33,7 @@ from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke
 from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
 from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.actions import response_action, game_action
-
-__author__ = 'jswaro'
+from gamebot.coup.events import EventQueue
 
 
 class CoupGame(BaseGame):
@@ -54,6 +53,7 @@ class CoupGame(BaseGame):
         self.guessing = parameters.guessing  # Todo: To implement
 
         self.action_time = 30
+        self.event_queue = EventQueue(self.action_time)
 
     def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]

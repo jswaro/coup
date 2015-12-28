@@ -17,7 +17,6 @@ from gamebot.bots import irc_simple
 from gamebot.coup.game import Instance
 from gamebot.coup.cli import CoupCLIParser
 
-__author__ = 'jswaro', 'dcolestock'
 core = logging.getLogger('core')
 
 

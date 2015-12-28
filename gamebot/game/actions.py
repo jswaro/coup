@@ -12,7 +12,7 @@ class BaseAction(object):
 
     @classmethod
     def command_name(cls):
-        return cls.name.lower().substitute(" ", "_")
+        return cls.name.lower().replace(" ", "_")
 
     @staticmethod
     def do_success(target, source):

@@ -53,6 +53,8 @@ class CoupGame(BaseGame):
         self.teams = parameters.teams  # Todo: To implement
         self.guessing = parameters.guessing  # Todo: To implement
 
+        self.action_time = 30
+
     def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]
         self.valid_player_actions = [Income, ForeignAid, Coup]
@@ -123,7 +125,7 @@ class CoupGame(BaseGame):
             if name.lower() == action.command_name():
                 return action
         raise GameInvalidOperation("You have picked an invalid option. "
-                                    "Please choose from {0}.".format(", ".join(self.valid_player_actions.command_name())))
+                                   "Please choose from {0}.".format(", ".join(self.valid_player_actions.command_name())))
 
     def find_player_by_name(self, name):
         if name not in self.players.keys():
@@ -160,12 +162,20 @@ class CoupGame(BaseGame):
 
     def run_command(self, action, user, arguments):
         if action.lower() == 'do':
+            print(user, arguments)
             if not self.my_turn(user):
                 raise GameInvalidOperation("Not your turn")
             action = self.get_action_by_name(arguments[0])
+            if action not in self.valid_player_actions:
+                raise GameInvalidOperation("Action not available given current rules")
+            response = action.run(self, arguments.get('player'), user)
+            self.broadcast_message(response)
         elif action in response_action:
-            pass
-
+            raise NotImplementedError
+        elif action in game_action:
+            raise NotImplementedError
+        else:
+            raise GameInvalidOperation
 
 
 class Instance(BaseInstance):

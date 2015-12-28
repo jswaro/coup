@@ -8,3 +8,5 @@ def completion(query_str, possible):
             if try_str.startswith(query_str):
                 found.append(try_str)
     return found
+
+event_queue = []

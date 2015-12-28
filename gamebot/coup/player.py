@@ -31,7 +31,7 @@ class Player(BasePlayer):
         return len(self.available_influence)
 
     def kill(self):
-        for _ in self.available_influence:
+        while self.available_influence:
             t = self.available_influence.pop()
             self.revealed_influence.append(t)
 

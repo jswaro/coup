@@ -114,7 +114,7 @@ class Help(BaseCommand):
 
     @staticmethod
     def process_args(instance, user, args):
-        if args.command is None:
+        if args.helpcommand is None:
             output_list = ["Bot for playing Coup. Use .help <command> for more information",
                            "Commands:"]
             for command_name, command in command_list.items():
@@ -131,6 +131,6 @@ class Help(BaseCommand):
                 output_list.append(" "*6 + "." + action.name.lower().replace(" ", "_"))
             return "\n".join(output_list)
         else:
-            if args.command not in command_list:
-                raise MalformedCLICommand("Command {} not recognized".format(args.command))
-            return command_list[args.command].help()
+            if args.helpcommand not in command_list:
+                raise MalformedCLICommand("Command {} not recognized".format(args.helpcommand))
+            return command_list[args.helpcommand].help()

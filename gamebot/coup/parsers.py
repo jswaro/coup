@@ -8,7 +8,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         raise MalformedCLICommand(message)
 
 command_parser = ThrowingArgumentParser(prog='', add_help=False)
-command_subparser = command_parser.add_subparsers()
+command_subparser = command_parser.add_subparsers(dest='command')
 
 # Commands
 create_parser = command_subparser.add_parser('create', add_help=False, description="Creates a new game")
@@ -36,7 +36,7 @@ stats_parser = command_subparser.add_parser('stats', add_help=False, description
 stats_parser.add_argument('player', help='The player name to lookup', nargs='?')
 
 help_parser = command_subparser.add_parser('help', add_help=False, description="Help info on a command or action")
-help_parser.add_argument('command', help='The command or action to lookup', nargs='?')
+help_parser.add_argument('helpcommand', help='The command or action to lookup', nargs='?')
 
 # Turn Actions
 do_parser = command_subparser.add_parser('do', add_help=False, description="Main turn actions")
@@ -75,9 +75,11 @@ challenge_parser.add_argument('player')
 accept_parser = command_subparser.add_parser('accept', add_help=False)
 
 keep_parser = command_subparser.add_parser('keep', add_help=False)
-keep_parser.add_argument('cards', nargs='*')
 
 change_parser = command_subparser.add_parser('change', add_help=False)
+
+select_parser = command_subparser.add_parser('select', add_help=False)
+select_parser.add_argument('cards', nargs='+')
 
 # Misc. Game Actions
 status_parser = command_subparser.add_parser('status', add_help=False)

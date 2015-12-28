@@ -1,6 +1,7 @@
 from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.team import same_team
 from gamebot.game.actions import BaseAction
+from gamebot.coup.events import event_queue
 
 __author__ = 'jswaro'
 
@@ -14,6 +15,12 @@ def action_register(action_list):
         action_list.append(cls)
         return cls
     return record_entry
+
+
+class CoupAction(BaseAction):
+    @staticmethod
+    def announce():
+        return "No announcement implemented"
 
 
 class Event(object):
@@ -31,9 +38,13 @@ class Event(object):
 
 # Do actions - Initial turn actions
 @action_register(do_action)
-class Income(BaseAction):
+class Income(CoupAction):
     name = "Income"
     description = "Take 1 coin"
+
+    @staticmethod
+    def run(game, target, source):
+        game.broadcast_message("{} takes an income of 1 coin".format(source))
 
     @staticmethod
     def do_success(target, source):
@@ -45,9 +56,13 @@ class Income(BaseAction):
 
 
 @action_register(do_action)
-class ForeignAid(BaseAction):
+class ForeignAid(CoupAction):
     name = "Foreign Aid"
     description = "Take 2 coins"
+
+    @staticmethod
+    def announce(target, source):
+        return "{} takes an foreign aid of 2 coins".format(source)
 
     @staticmethod
     def do_success(target, source):
@@ -55,9 +70,13 @@ class ForeignAid(BaseAction):
 
 
 @action_register(do_action)
-class Tax(BaseAction):
+class Tax(CoupAction):
     name = "Tax"
     description = "Take 3 coins"
+
+    @staticmethod
+    def announce(target, source):
+        return "{} takes an tax of 3 coins".format(source)
 
     @staticmethod
     def do_success(target, source):
@@ -65,9 +84,13 @@ class Tax(BaseAction):
 
 
 @action_register(do_action)
-class Steal(BaseAction):
+class Steal(CoupAction):
     name = "Steal"
     description = "Take 2 coins from another player"
+
+    @staticmethod
+    def announce(target, source):
+        return "{} steals 2 coins from {}".format(source, target)
 
     @staticmethod
     def do_success(target, source):
@@ -80,9 +103,14 @@ class Steal(BaseAction):
 
 
 @action_register(do_action)
-class Assassinate(BaseAction):
+class Assassinate(CoupAction):
     name = "Assassinate"
     description = "Pay 3 coins, choose player to lose influence"
+
+    @staticmethod
+    def announce(target, source):
+        # TODO no need to select if only 1 left
+        return "{} assassinates {}. {}, please select an influence to lose (example: select 1)".format(source, target, target)
 
     @staticmethod
     def do_success(target, source):
@@ -104,29 +132,27 @@ class Assassinate(BaseAction):
 
 
 @action_register(do_action)
-class ExchangeOne(BaseAction):
+class ExchangeOne(CoupAction):
     name = "Exchange"
     description = "Take 1 cards, return 1 cards to court deck"
 
     @staticmethod
+    def announce(target, source):
+        return "{} draws an influence card.  Must return 1 to the deck.".format(source)
+
+    @staticmethod
     def do_success(target, source):
         raise NotImplementedError
 
 
 @action_register(do_action)
-class ExchangeTwo(BaseAction):
+class ExchangeTwo(CoupAction):
     name = "Exchange"
     description = "Take 2 cards, return 2 cards to court deck"
 
     @staticmethod
-    def do_success(target, source):
-        raise NotImplementedError
-
-
-@action_register(do_action)
-class Examine(BaseAction):
-    name = "Examine"
-    description = "Choose player; look at one card, may force Exchange"
+    def announce(target, source):
+        return "{} draws two influence card.  Must return two to the deck.".format(source)
 
     @staticmethod
     def do_success(target, source):
@@ -134,9 +160,28 @@ class Examine(BaseAction):
 
 
 @action_register(do_action)
-class Coup(BaseAction):
+class Examine(CoupAction):
+    name = "Examine"
+    description = "Choose player; look at one card, may force Exchange"
+
+    @staticmethod
+    def announce(target, source):
+        return "{} examines one of {}'s cards.  {}, please select a card (example: select 1).".format(source, target, target)
+
+    @staticmethod
+    def do_success(target, source):
+        raise NotImplementedError
+
+
+@action_register(do_action)
+class Coup(CoupAction):
     name = "Coup"
     description = "Pay 7 coins, choose player to lose influence"
+
+    @staticmethod
+    def announce(target, source):
+        # TODO no need to select if only 1 left
+        return "{} coups {}. {}, please select an influence to lose (example: select 1)".format(source, target, target)
 
     @staticmethod
     def do_success(target, source):
@@ -149,9 +194,14 @@ class Coup(BaseAction):
 
 
 @action_register(do_action)
-class Convert(BaseAction):
+class Convert(CoupAction):
     name = "Convert"
     description = "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve"
+
+    @staticmethod
+    def announce(target, source):
+        # TODO no need to select if only 1 left
+        return "{} changes {}'s allegiance".format(source, target)
 
     @staticmethod
     def do_success(target, source):
@@ -164,9 +214,14 @@ class Convert(BaseAction):
 
 
 @action_register(do_action)
-class Embezzle(BaseAction):
+class Embezzle(CoupAction):
     name = "Embezzle"
     description = "Take all coins from Treasury Reserve"
+
+    @staticmethod
+    def announce(target, source):
+        # TODO no need to select if only 1 left
+        return "{} takes all coins from the treasury".format(source)
 
     @staticmethod
     def do_success(target, source):
@@ -175,7 +230,7 @@ class Embezzle(BaseAction):
 
 # Response Actions
 @action_register(response_action)
-class Counter(BaseAction):
+class Counter(CoupAction):
     name = "Counter"
     description = "Use influence to counter an action"
 
@@ -185,7 +240,7 @@ class Counter(BaseAction):
 
 
 @action_register(response_action)
-class Challenge(BaseAction):
+class Challenge(CoupAction):
     name = "Challenge"
     description = "Challenge a player's claimed influence"
 
@@ -195,7 +250,7 @@ class Challenge(BaseAction):
 
 
 @action_register(response_action)
-class Accept(BaseAction):
+class Accept(CoupAction):
     name = "Accept"
     description = "Accept your fate"
 
@@ -205,17 +260,7 @@ class Accept(BaseAction):
 
 
 @action_register(response_action)
-class KeepExchange(BaseAction):
-    name = "Keep"
-    description = "After exchange, signifies which cards to keep"
-
-    @staticmethod
-    def do_success(target, source):
-        raise NotImplementedError
-
-
-@action_register(response_action)
-class KeepExamine(BaseAction):
+class KeepExamine(CoupAction):
     name = "Keep"
     description = "After examine, allows target to keep his card"
 
@@ -225,7 +270,7 @@ class KeepExamine(BaseAction):
 
 
 @action_register(response_action)
-class ChangeExamine(BaseAction):
+class ChangeExamine(CoupAction):
     name = "Change"
     description = "After examine, forces target to exchange his card"
 
@@ -234,9 +279,19 @@ class ChangeExamine(BaseAction):
         raise NotImplementedError
 
 
+@action_register(response_action)
+class Select(CoupAction):
+    name = "Select"
+    description = "Makes card selection for game response"
+
+    @staticmethod
+    def do_success(target, source):
+        raise NotImplementedError
+
+
 # Miscellaneous game actions
 @action_register(game_action)
-class Status(BaseAction):
+class Status(CoupAction):
     name = "Status"
     description = "Gets current game status"
 
@@ -246,7 +301,7 @@ class Status(BaseAction):
 
 
 @action_register(game_action)
-class Forfeit(BaseAction):
+class Forfeit(CoupAction):
     name = "Forfeit"
     description = "Accepts a lose and removes you from the game"
 

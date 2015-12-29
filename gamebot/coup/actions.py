@@ -22,9 +22,9 @@ class CoupAction(BaseAction):
 
 
 class Event(object):
-    def __init__(self, target_player, source_player, action):
-        self.target = target_player
+    def __init__(self, source_player, target_player, action):
         self.source = source_player
+        self.target = target_player
         self.action = action
 
     def success(self):
@@ -40,13 +40,14 @@ class Income(CoupAction):
     name = "Income"
     description = "Take 1 coin"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         game.broadcast_message("{} takes income for 1 coin".format(source))
         responses = []
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(Income, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         source.modify_coins_by_action(1)
 
 
@@ -55,13 +56,14 @@ class ForeignAid(CoupAction):
     name = "Foreign Aid"
     description = "Take 2 coins"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         game.broadcast_message("{} takes foreign aid for 2 coins".format(source))
         responses = [Counter]  # TODO: teammates cannot counter
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(ForeignAid, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         source.modify_coins_by_action(2)
 
 
@@ -70,13 +72,14 @@ class Tax(CoupAction):
     name = "Tax"
     description = "Take 3 coins"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         game.broadcast_message("{} takes tax for 3 coins".format(source))
         responses = [Challenge]
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(Tax, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         source.modify_coins_by_action(3)
 
 
@@ -85,22 +88,24 @@ class Steal(CoupAction):
     name = "Steal"
     description = "Take 2 coins from another player"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source, target):
         if target == source:
             raise GameInvalidOperation("Cannot steal from yourself. Choose a different action")
         if target.dead():
             raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
-        if same_team(target, source):
+        if same_team(source, target):
             raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
         if target.cash() < 1:
             raise GameInvalidOperation("{} has no cash. Choose a different action".format(target))
         cash_to_steal = max(target.cash(), 2)
         game.broadcast_message("{} steals {} coins from {}".format(source, cash_to_steal, target))
+        game.add_message_to_queue(target.name(), "Please challenge, counter, or accept with .accept")
         responses = [Challenge, Counter, Accept]
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(Steal, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         cash_to_steal = max(target.cash(), 2)
         source.modify_coins_by_action(cash_to_steal)
         target.modify_coins_by_action(-cash_to_steal)
@@ -111,20 +116,27 @@ class Assassinate(CoupAction):
     name = "Assassinate"
     description = "Pay 3 coins, choose player to lose influence"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source, target, guess=None):
         if target == source:
             raise GameInvalidOperation("Cannot assassinate from yourself. Choose a different action")
         if target.dead():
             raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
-        if same_team(target, source):
+        if same_team(source, target):
             raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
         source.modify_coins(-3)
         game.broadcast_message("{} assassinates {}".format(source, target))
-        responses = [Challenge, Counter, Select, Accept]
-        game.eventqueue.add(self, responses)
+        if len(target.available_influence) > 1:
+            game.add_message_to_queue(target.name(), "Please challenge, counter, or select which card to provide "
+                                                     "with .select 1 or .select 2")
+            responses = [Challenge, Counter, Select]
+        else:
+            game.add_message_to_queue(target.name(), "Please challenge, counter, or accept with .accept")
+            responses = [Challenge, Counter, Accept]
+        game.event_queue.add(Assassinate, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -133,13 +145,14 @@ class ExchangeOne(CoupAction):
     name = "Exchange"
     description = "Take 1 cards, return 1 cards to court deck"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         game.broadcast_message("{} exchanges influence; draws an influence card".format(source))
         responses = [Challenge]
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(ExchangeOne, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -148,13 +161,14 @@ class ExchangeTwo(CoupAction):
     name = "Exchange"
     description = "Take 2 cards, return 2 cards to court deck"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         game.broadcast_message("{} exchanges influence; draws two influence cards".format(source))
         responses = [Challenge]
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(ExchangeTwo, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -163,19 +177,26 @@ class Examine(CoupAction):
     name = "Examine"
     description = "Choose player; look at one card, may force Exchange"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source, target):
         if target == source:
             raise GameInvalidOperation("Cannot examine from yourself. Choose a different action")
         if target.dead():
             raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
-        if same_team(target, source):
+        if same_team(source, target):
             raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
         game.broadcast_message("{} examines one of {}'s cards".format(source, target))
-        responses = [Challenge, Counter, Select, Accept]
-        game.eventqueue.add(self, responses)
+        if len(target.available_influence) > 1:
+            game.add_message_to_queue(target.name(), "Please challenge, counter, or select which card to provide "
+                                                     "with .select 1 or .select 2")
+            responses = [Challenge, Counter, Select]
+        else:
+            game.add_message_to_queue(target.name(), "Please challenge, counter, or accept with .accept")
+            responses = [Challenge, Counter, Accept]
+        game.event_queue.add(Examine, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -184,20 +205,28 @@ class Coup(CoupAction):
     name = "Coup"
     description = "Pay 7 coins, choose player to lose influence"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source, target, guess=None):
         if target == source:
             raise GameInvalidOperation("Cannot coup from yourself. Choose a different action")
         if target.dead():
             raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
-        if same_team(target, source):
+        if same_team(source, target):
             raise GameInvalidOperation("{} is on your team. Choose a different action".format(target))
         source.modify_coins(-7)
         game.broadcast_message("{} coups {}".format(source, target))
-        responses = []
-        game.eventqueue.add(self, responses)
+        game.add_message_to_queue(target.name(), "Please challenge, counter, or accept with .accept")
+        if len(target.available_influence) > 1:
+            game.add_message_to_queue(target.name(), "Please select which card to lose "
+                                                     "with .select 1 or .select 2")
+            responses = [Select]
+        else:
+            game.add_message_to_queue(target.name(), "Please challenge, counter, or accept with .accept")
+            responses = []
+        game.event_queue.add(Coup, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -206,7 +235,8 @@ class Convert(CoupAction):
     name = "Convert"
     description = "Change Allegiance.  Place 1 coin yourself or 2 coins for another player on Treasury Reserve"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source, target):
         if target.dead():
             raise GameInvalidOperation("{} is dead. Choose a different action".format(target))
         cost = 1
@@ -216,10 +246,10 @@ class Convert(CoupAction):
         source.modify_coins(-cost)
         game.broadcast_message("{} changes {}'s allegiance".format(source, target))
         responses = []
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(Convert, responses)
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         target.flip_team()
 
 
@@ -228,14 +258,15 @@ class Embezzle(CoupAction):
     name = "Embezzle"
     description = "Take all coins from Treasury Reserve"
 
-    def run(self, game, target, source):
+    @staticmethod
+    def run(game, source):
         coins = game.treasury
         game.broadcast_message("{} takes coins from the treasury.  Gains {} coins.".format(source, coins))
         responses = [Challenge]
-        game.eventqueue.add(self, responses)
+        game.event_queue.add(Embezzle, responses)
 
     @staticmethod
-    def do_success(game, target, source):
+    def do_success(game, source, target):
         source.modify_coin_by_action(game.treasury)
         game.treasury = 0
 
@@ -247,7 +278,12 @@ class Counter(CoupAction):
     description = "Use influence to counter an action"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source, with_role):
+        responses = [Challenge]
+        game.event_queue.add(Counter, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -257,7 +293,12 @@ class Challenge(CoupAction):
     description = "Challenge a player's claimed influence"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source, target):
+        responses = []
+        game.event_queue.add(Challenge, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -267,7 +308,12 @@ class Accept(CoupAction):
     description = "Accept your fate"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source):
+        responses = []
+        game.event_queue.add(Accept, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -277,7 +323,12 @@ class KeepExamine(CoupAction):
     description = "After examine, allows target to keep his card"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source):
+        responses = []
+        game.event_queue.add(KeepExamine, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -287,7 +338,12 @@ class ChangeExamine(CoupAction):
     description = "After examine, forces target to exchange his card"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source):
+        responses = []
+        game.event_queue.add(ChangeExamine, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -297,7 +353,12 @@ class Select(CoupAction):
     description = "Makes card selection for game response"
 
     @staticmethod
-    def do_success(target, source):
+    def run(game, source, cards):
+        responses = []
+        game.event_queue.add(Select, responses, is_response=True)
+
+    @staticmethod
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -308,7 +369,7 @@ class Status(CoupAction):
     description = "Gets current game status"
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError
 
 
@@ -318,5 +379,5 @@ class Forfeit(CoupAction):
     description = "Accepts a lose and removes you from the game"
 
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source, target):
         raise NotImplementedError

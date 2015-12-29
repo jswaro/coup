@@ -165,11 +165,11 @@ class CoupGame(BaseGame):
             print(user, arguments)
             if not self.my_turn(user):
                 raise GameInvalidOperation("Not your turn")
-            action = self.get_action_by_name(arguments[0])
+            action = self.get_action_by_name(arguments['do'])
             if action not in self.valid_player_actions:
                 raise GameInvalidOperation("Action not available given current rules")
-            response = action.run(self, arguments.get('player'), user)
-            self.broadcast_message(response)
+            additional = {x: y for x, y in arguments.items() if x not in ('command', 'do')}
+            action.run(self, user, **additional)
         elif action in response_action:
             raise NotImplementedError
         elif action in game_action:

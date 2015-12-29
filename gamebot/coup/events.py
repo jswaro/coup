@@ -1,5 +1,7 @@
 import time
 
+from gamebot.coup.exceptions import GameInvalidOperation
+
 
 def completion(query_str, possible):
     if query_str in possible:
@@ -17,11 +19,17 @@ class EventQueue(object):
         self.queue = []
         self.default_timeout = default_timeout
 
-    def add(self, action, timeout=None):
-        if timeout is None:
-            timeout = self.default_timeout
-        if not action:
-            timeout = 0
-        time_eff = time.time() + timeout
-        self.queue.append((time_eff, action))
+    def add(self, action, responses, timeout=None, is_response=False):
+        if self.queue and not is_response:
+            raise GameInvalidOperation("Primary action already done this turn")
+        if not self.queue and is_response:
+            raise GameInvalidOperation("Primary action not yet done this turn")
+
+        if not is_response:
+            if timeout is None:
+                timeout = self.default_timeout
+            if not responses:
+                timeout = 0
+            time_eff = time.time() + timeout
+            self.queue.append((time_eff, action))
 

@@ -41,6 +41,7 @@ help_parser.add_argument('helpcommand', help='The command or action to lookup', 
 # Turn Actions
 do_parser = command_subparser.add_parser('do', add_help=False, description="Main turn actions")
 do_subparser = do_parser.add_subparsers(dest='do')
+do_subparser.required = True
 
 income_parser = do_subparser.add_parser('income', add_help=False)
 foreign_aid_parser = do_subparser.add_parser('foreign_aid', add_help=False)
@@ -49,20 +50,20 @@ embezzle_parser = do_subparser.add_parser('embezzle', add_help=False)
 exchange_parser = do_subparser.add_parser('exchange', add_help=False)
 
 steal_parser = do_subparser.add_parser('steal', add_help=False)
-steal_parser.add_argument('player')
+steal_parser.add_argument('target')
 
 examine_parser = do_subparser.add_parser('examine', add_help=False)
-examine_parser.add_argument('player')
+examine_parser.add_argument('target')
 
 convert_parser = do_subparser.add_parser('convert', add_help=False)
-convert_parser.add_argument('player')
+convert_parser.add_argument('target')
 
 assassinate_parser = do_subparser.add_parser('assassinate', add_help=False)
-assassinate_parser.add_argument('player')
+assassinate_parser.add_argument('target')
 assassinate_parser.add_argument('guess', nargs='?')
 
 coup_parser = do_subparser.add_parser('coup', add_help=False)
-coup_parser.add_argument('player')
+coup_parser.add_argument('target')
 coup_parser.add_argument('guess', nargs='?')
 
 # Response Actions
@@ -70,7 +71,7 @@ counter_parser = command_subparser.add_parser('counter', add_help=False)
 counter_parser.add_argument('with_role', nargs='?')
 
 challenge_parser = command_subparser.add_parser('challenge', add_help=False)
-challenge_parser.add_argument('player')
+challenge_parser.add_argument('target')
 
 accept_parser = command_subparser.add_parser('accept', add_help=False)
 

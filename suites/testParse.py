@@ -33,7 +33,8 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(parse('Not_in_game', 'do income').startswith("Error:"))  # not in game
         self.assertTrue(parse(other, 'do income').startswith("Error:"))  # not his turn
         print(parse(current, 'do income'))
-        self.assertEqual(instance.msgqueue.popleft(), ('game message', ('one', 'TestPlayer2 takes income for 1 coin')))
+        self.assertEqual(instance.msgqueue.popleft(), ('game message',
+                                                       ('one', '{} takes income for 1 coin'.format(current))))
 
 if __name__ == '__main__':
     unittest.main()

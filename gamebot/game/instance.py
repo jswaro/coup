@@ -1,4 +1,6 @@
+import time
 from collections import deque
+
 
 from gamebot.coup.exceptions import GameInvalidOperation, GameNotFoundException
 
@@ -23,19 +25,21 @@ class BaseInstance(object):
 
         return self.games[name]
 
-    def find_user_game(self, name):
-        for game_name in self.games.keys():
-            if name in self.games[game_name].players:
-                return self.games[game_name]
+    def find_user_game(self, user):
+        for _, game in self.games.items():
+            if user in game.players:
+                return game
 
-        raise GameNotFoundException("User {0} does not appear to be in a game".format(name))
+        raise GameNotFoundException("User {0} does not appear to be in a game".format(user))
 
     def get_stats(self, player_name=None):
         pass  # TODO get statistics
 
     def print_games(self):
-        if len(self.games.keys()) == 0:
-            return ""
-
-        games = [self.games[x].long_name() for x in self.games.keys()]
+        games = [game.long_name() for _, game in self.games]
         return "\n".join(games)
+
+    def checkevents(self):
+        for _, game in self.games.item():
+            if time.time() > game.event_queue.next_event:
+                game.event_queue.trigger()

@@ -15,13 +15,13 @@ class BaseAction(object):
         return cls.name.lower().replace(" ", "_")
 
     @staticmethod
-    def do_success(game, source, target):
+    def do_success(game, source_player, target_player):
         pass
 
     @staticmethod
-    def do_failure(game, source, target):
+    def do_failure(game, source_player, target_player):
         pass
 
     @staticmethod
-    def valid_action(source, target):
+    def valid_action(source_player, target_player):
         return True

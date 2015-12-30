@@ -18,8 +18,9 @@ class EventQueue(object):
     def __init__(self, default_timeout=30):
         self.queue = []
         self.default_timeout = default_timeout
+        self.next_event = None
 
-    def add(self, action, responses, timeout=None, is_response=False):
+    def add(self, action, responses, source, target=None, timeout=None, is_response=False):
         if self.queue and not is_response:
             raise GameInvalidOperation("Primary action already done this turn")
         if not self.queue and is_response:
@@ -30,6 +31,9 @@ class EventQueue(object):
                 timeout = self.default_timeout
             if not responses:
                 timeout = 0
-            time_eff = time.time() + timeout
-            self.queue.append((time_eff, action))
+            self.next_event = time.time() + timeout
+            self.queue.append((action))
+
+    def trigger(self):
+        pass
 

@@ -10,6 +10,9 @@ class BasePlayer(object):
     def name(self):
         return self._name
 
+    def __str__(self):
+        return self._name
+
     @property
     def team(self):
         return self._team

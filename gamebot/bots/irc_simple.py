@@ -109,6 +109,8 @@ class irc_connection():
         default_msg_delay = .5  # seconds of delay between messages
         ircmsg = None
         while ircmsg is None:
+            # Check for pending events
+            self.parser.instance.checkevents()
             # Process game's message queue
             if not self.msgqueue and self.parser.instance.msgqueue:
                 msg_type, payload = self.parser.instance.msgqueue.popleft()

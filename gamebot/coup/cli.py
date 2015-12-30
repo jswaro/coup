@@ -110,10 +110,14 @@ class CoupCLIParser(object):
             elif action in self.recognized_game_actions:
                 if game is None:
                     raise GameNotFoundException("You are not in a game and cannot use {}".format(action))
-                ret = game.run_command(action, user, vars(command_namespace))
+                additional = vars(command_namespace)
+                if 'target' in additional:
+                    additional['target'] = game.find_player_by_name(additional['target'])
+                player = game.find_player_by_name(user)
+                ret = game.run_command(action, player, additional)
             else:
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         except CoupException as e:
-            ret = "Error: {0} ".format(e.args[0])
+            ret = "Error: {0} ".format(e.args)
 
         return ret

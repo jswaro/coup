@@ -39,7 +39,7 @@ class irc_connection():
             self.sendmsg("nickserv", "register {} {}".format(botpass, email))
             self.sendmsg("nickserv", "set enforce on")
         self.identify(botnick, botpass)
-        self.game_rooms = []
+        self.game_rooms = deque()
         for channel in channellist:
             if channel[0] != '#':
                 raise SyntaxError("Channel names must start with #")
@@ -78,7 +78,8 @@ class irc_connection():
     def create_room(self, game_name):
         assigned_room = self.game_rooms.popleft()  # Todo: handle running out of rooms
         self.assigned_game_rooms[game_name] = assigned_room
-        self.sendmsg("chanserv", "TOPIC {} Coup game {}: Hosted by ".format(assigned_room, game_name, self.botnick))
+        # Todo: add game options to topic
+        self.sendmsg("chanserv", "TOPIC {} Coup game {}: Hosted by {}".format(assigned_room, game_name, self.botnick))
         logging.debug("Assigning room {}: {}".format(assigned_room, game_name))
 
     def add_player(self, name, game_name):
@@ -108,6 +109,8 @@ class irc_connection():
         default_msg_delay = .5  # seconds of delay between messages
         ircmsg = None
         while ircmsg is None:
+            # Check for pending events
+            self.parser.instance.checkevents()
             # Process game's message queue
             if not self.msgqueue and self.parser.instance.msgqueue:
                 msg_type, payload = self.parser.instance.msgqueue.popleft()
@@ -168,6 +171,10 @@ class irc_connection():
                     if response is not None:
                         logging.info("{} >> {}".format(message['nick'], response))
                         self.sendmsg(message['nick'], response)
+                matchstr = ":(?P<nick>.*)!(?P<user>.*)@(?P<host>.*) PART (?P<channel>.*)"
+                partmsg = re.match(matchstr, ircmsg)
+                if partmsg is not None:
+                    pass  # TODO: Handle leavers
                 if ircmsg.startswith("PING :"):
                     self.ping()
                 if ircmsg.startswith("ERROR :"):

@@ -67,11 +67,10 @@ Once a player is in a game, they may do any of the following commands on their t
 
 A player loses once they have lost all of their influence. At this point, they may leave to join another game.
 """
-from gamebot.coup.exceptions import InvalidCLICommand, GameNotFoundException, CoupException
+from gamebot.coup.exceptions import InvalidCLICommand, GameNotFoundException, CoupException, MalformedCLICommand
 from gamebot.coup.events import completion
 from gamebot.coup.commands import command_list
-
-__author__ = 'jswaro'
+from gamebot.coup.parsers import command_parser
 
 
 class CoupCLIParser(object):
@@ -82,49 +81,43 @@ class CoupCLIParser(object):
 
         self.instance = instance
 
-    def complete_command(self, action, ingame):
-        if action not in self.recognized_base_actions and action not in self.recognized_game_actions:
-            action_comp = []
-            if ingame:
-                action_comp = completion(action, self.recognized_game_actions)
-            if not action_comp:
-                action_comp = completion(action, self.recognized_base_actions)
-            if len(action_comp) == 0:
-                raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
-            elif len(action_comp) > 1:
-                raise InvalidCLICommand(
-                    "Ambiguous command: {}. Maybe you meant {}. Type"
-                    " .help for available options".format(action, ' or '.join(action_comp)))
-            else:
-                action = action_comp[0]
-        return action
+    @staticmethod
+    def complete_command(arguments, game_active):
+        try:
+            command_namespace = command_parser.parse_args(arguments)
+        except MalformedCLICommand as e:
+            # TODO: Attempt to resolve by command completion
+            raise e
+
+        return command_namespace
 
     def parse_input(self, message):
-        arguments = message['command'].split()
+        arguments = message['command'].lower().split()
 
-        action = arguments[0].lower()
         user = message['nick']
         try:
             game = self.instance.find_user_game(user)
+            game_active = game.is_started
         except GameNotFoundException:
             game = None
-
-        game_active = (game is not None and game.is_started)
-
-        ret = None
+            game_active = False
 
         try:
-            action = self.complete_command(action, game_active)
-
+            command_namespace = self.complete_command(arguments, game_active)
+            action = command_namespace.command
             if action in self.recognized_base_actions:
                 ret = self.recognized_base_actions[action].run(self.instance, user, arguments[1:])
             elif action in self.recognized_game_actions:
                 if game is None:
                     raise GameNotFoundException("You are not in a game and cannot use {}".format(action))
-                ret = game.run_command(action, user, arguments[1:])
+                additional = vars(command_namespace)
+                if 'target' in additional:
+                    additional['target'] = game.find_player_by_name(additional['target'])
+                player = game.find_player_by_name(user)
+                ret = game.run_command(action, player, additional)
             else:
                 raise InvalidCLICommand("Unrecognized command: {}. Type .help for available options".format(action))
         except CoupException as e:
-            ret = "Error: {0} ".format(e.args[0])
+            ret = "Error: {0} ".format(e.args)
 
         return ret

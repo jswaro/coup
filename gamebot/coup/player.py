@@ -2,8 +2,6 @@ from gamebot.coup.exceptions import GameInvalidOperation
 from gamebot.coup.team import Team
 from gamebot.game.player import BasePlayer
 
-__author__ = 'jswaro'
-
 
 class Player(BasePlayer):
     def __init__(self, name, team=Team.UNASSIGNED):
@@ -31,7 +29,7 @@ class Player(BasePlayer):
         return len(self.available_influence)
 
     def kill(self):
-        for _ in self.available_influence:
+        while self.available_influence:
             t = self.available_influence.pop()
             self.revealed_influence.append(t)
 

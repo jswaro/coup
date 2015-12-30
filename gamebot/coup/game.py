@@ -25,6 +25,7 @@ A counter can result in another contestable event, but only contestable in terms
 A counter can only be challenged, but a declaration can be countered or challenged.
 """
 import random
+from collections import OrderedDict
 
 from gamebot.game import BaseGame
 from gamebot.game.instance import BaseInstance
@@ -32,8 +33,8 @@ from gamebot.game.instance import BaseInstance
 from gamebot.coup.influence import ambassador, assassin, contessa, captain, duke, inquisitor
 from gamebot.coup.actions import Income, ForeignAid, Coup, Embezzle, Convert
 from gamebot.coup.exceptions import GameInvalidOperation
-
-__author__ = 'jswaro'
+from gamebot.coup.actions import response_action, game_action
+from gamebot.coup.events import EventQueue
 
 
 class CoupGame(BaseGame):
@@ -51,6 +52,10 @@ class CoupGame(BaseGame):
         self.inquisitor = parameters.inquisitor
         self.teams = parameters.teams  # Todo: To implement
         self.guessing = parameters.guessing  # Todo: To implement
+
+        self.action_time = 30
+        self.event_queue = EventQueue(self.action_time)
+        self.to_forfeit = []
 
     def populate_deck_and_actions(self):
         cards = [contessa, duke, captain, assassin]
@@ -82,8 +87,9 @@ class CoupGame(BaseGame):
             raise GameInvalidOperation("Not enough players to start yet")
 
         # Randomize player order
-        self.player_order = list(self.players.keys())
-        random.shuffle(self.player_order)
+        player_items = list(self.players.items())
+        random.shuffle(player_items)
+        self.players = OrderedDict(player_items)
         self.current_player = 0
 
         # create the deck
@@ -93,21 +99,20 @@ class CoupGame(BaseGame):
         random.shuffle(self.deck)
 
         # deal each player two cards
-        for name in self.players:
-            current = self.players[name]
+        for _, player in self.players.items():
 
             # each player gets two cards
-            current.give_card(self.deck.pop())
-            current.give_card(self.deck.pop())
+            player.give_card(self.deck.pop())
+            player.give_card(self.deck.pop())
 
-            card_list_msg = " and ".join([card.short_description() for card in current.available_influence])
-            self.add_message_to_queue(name, "You have {}.".format(card_list_msg))
+            card_list_msg = " and ".join([card.short_description() for card in player.available_influence])
+            self.add_message_to_queue(player.name, "You have {}.".format(card_list_msg))
 
         # put the remaining cards into the court deck
         self.court_deck = list(self.deck)
 
         self.is_started = True
-        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(self.player_order)))
+        self.broadcast_message("The game has begun. Turn order is {0}.".format(", ".join(self.players)))
 
         self.add_message_to_queue(self.current_player_name(), "You are the first player. Please choose an action.")
 
@@ -119,10 +124,10 @@ class CoupGame(BaseGame):
 
     def get_action_by_name(self, name):
         for action in self.valid_player_actions:
-            if name == action.name:
+            if name.lower() == action.command_name():
                 return action
-        return GameInvalidOperation("You have picked an invalid option. "
-                                    "Please choose from {0}.".format(", ".join(self.valid_player_actions)))
+        raise GameInvalidOperation("You have picked an invalid option. "
+                                   "Please choose from {0}.".format(", ".join(self.valid_player_actions.command_name())))
 
     def find_player_by_name(self, name):
         if name not in self.players.keys():
@@ -131,17 +136,18 @@ class CoupGame(BaseGame):
         return self.players[name]
 
     def my_turn(self, user):
-        return user == self.player_order[self.current_player]
+        return user == list(self.players.items())[self.current_player][0]
 
     def advance_to_next_player(self):
         self.current_player = (self.current_player + 1) % len(self.players)
 
     def progress_to_next_turn(self):
-        alive_players = [x for x in self.player_order if not self.players[x].dead()]
+        # TODO: remove forfeit players
+        alive_players = [x for x in self.players if not x.dead()]
 
         if len(alive_players) == 1:
-            for name in self.player_order:
-                self.add_message_to_queue(name, "Player {0} has won!".format(alive_players[0]))
+            for player in self.players:
+                self.add_message_to_queue(player.name, "Player {0} has won!".format(alive_players[0]))
         else:
             self.advance_to_next_player()
             while self.players[self.current_player_name()].dead():
@@ -152,10 +158,29 @@ class CoupGame(BaseGame):
 
     def face_up_cards(self):
         face_up = list()
-        for name in self.player_order:
-            face_up.extend(self.players[name].face_up_cards())
+        for player in self.players:
+            face_up.extend(player.face_up_cards())
 
         return ", ".join(face_up)
+
+    def run_command(self, action, player, arguments):
+        if action.lower() == 'do':
+            if not self.my_turn(player.name):
+                raise GameInvalidOperation("Not your turn")
+            actionvar = self.get_action_by_name(arguments['do'])
+            if actionvar not in self.valid_player_actions:
+                raise GameInvalidOperation("Action not available given current rules")
+        elif action in dict(response_action):
+            actionvar = dict(response_action)[action]
+        elif action in dict(game_action):
+            actionvar = dict(game_action)[action]
+        else:
+            raise GameInvalidOperation
+        additional = {x: y for x, y in arguments.items() if x not in ('command', 'do')}
+        actionvar.run(self, player, **additional)
+
+    def status(self):
+        return "Status not implemented"  # TODO
 
 
 class Instance(BaseInstance):

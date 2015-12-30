@@ -3,5 +3,5 @@ class BaseTeam(object):
 
 
 def same_team(target, source):
-    return target.team == source.team and target.team != BaseTeam.UNASSIGNED
+    return target.team == source.team and target.team != BaseTeam.UNASSIGNED  # TODO: Handle all same team
 

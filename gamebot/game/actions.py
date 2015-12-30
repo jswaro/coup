@@ -10,14 +10,18 @@ class BaseAction(object):
     def __str__(cls):
         return cls.name
 
+    @classmethod
+    def command_name(cls):
+        return cls.name.lower().replace(" ", "_")
+
     @staticmethod
-    def do_success(target, source):
+    def do_success(game, source_player, target_player):
         pass
 
     @staticmethod
-    def do_failure(target, source):
+    def do_failure(game, source_player, target_player):
         pass
 
     @staticmethod
-    def valid_action(target, source):
+    def valid_action(source_player, target_player):
         return True

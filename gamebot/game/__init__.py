@@ -1,6 +1,6 @@
+from collections import OrderedDict
 from gamebot.coup.exceptions import GameInvalidOperation, GamePermissionError
 from gamebot.game.player import BasePlayer
-__author__ = 'jswaro'
 
 
 class BaseGame(object):
@@ -12,8 +12,7 @@ class BaseGame(object):
         self.game_creator = game_creator
         self.max_players = max_players
 
-        self.players = dict()
-        self.player_order = list()
+        self.players = OrderedDict()
 
         self.current_player = 0
 
@@ -46,7 +45,6 @@ class BaseGame(object):
             raise GameInvalidOperation("No more room, already full.")
 
         self.players[player.name] = player
-        self.player_order.append(player.name)
         self.instance.msgqueue.append(("invite", (player.name, self.name)))
 
     def is_creator(self, user):
@@ -56,10 +54,9 @@ class BaseGame(object):
         raise NotImplementedError
 
     def current_player_name(self):
-        if len(self.player_order) == 0:
+        if len(self.players) == 0:
             raise GameInvalidOperation('There are no players in this game yet')
-
-        return self.player_order[self.current_player]
+        return list(self.players.items())[self.current_player][0]
 
     def long_name(self):
         if self.password is None:
@@ -74,17 +71,17 @@ class BaseGame(object):
         return self.players[name]
 
     def my_turn(self, user):
-        return user == self.player_order[self.current_player]
+        return user == list(self.players.items())[self.current_player][0]
 
     def advance_to_next_player(self):
         self.current_player = (self.current_player + 1) % len(self.players)
 
     def progress_to_next_turn(self):
-        alive_players = [x for x in self.player_order if not self.players[x].dead()]
+        alive_players = [x for x in self.players if not x.dead()]
 
         if len(alive_players) == 1:
-            for name in self.player_order:
-                self.add_message_to_queue(name, "Player {0} has won!".format(alive_players[0]))
+            for player in self.players:
+                self.add_message_to_queue(player.name, "Player {0} has won!".format(alive_players[0]))
         else:
             self.advance_to_next_player()
             while self.players[self.current_player_name()].dead():
@@ -93,11 +90,8 @@ class BaseGame(object):
 
             self.add_message_to_queue(self.current_player_name(), "It is your turn. Please choose an action.")
 
-    def add_message_to_queue(self, player_name, message):
-        self.instance.msgqueue.append(("private message", (player_name, message)))
+    def add_message_to_queue(self, user, message):
+        self.instance.msgqueue.append(("private message", (user, message)))
 
     def broadcast_message(self, message):
         self.instance.msgqueue.append(("game message", (self.name, message)))
-
-    def run_command(self):
-        pass  # TODO

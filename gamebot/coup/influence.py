@@ -1,7 +1,5 @@
 from gamebot.coup.actions import Assassinate, ForeignAid, Steal, Tax, ExchangeTwo, ExchangeOne, Examine
 
-__author__ = 'jswaro'
-
 
 class Influence(object):
     def __init__(self, name, actions, counteractions):

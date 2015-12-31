@@ -32,7 +32,9 @@ class EventQueue(object):
             if not responses:
                 timeout = 0
             self.next_event = time.time() + timeout
-            self.queue.append((action))
+            self.queue.append((action, source, target))
+        else:
+            pass
 
     def trigger(self):
         pass

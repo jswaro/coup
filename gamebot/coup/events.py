@@ -15,7 +15,8 @@ def completion(query_str, possible):
 
 
 class EventQueue(object):
-    def __init__(self, default_timeout=30):
+    def __init__(self, game, default_timeout=30):
+        self.game = game
         self.queue = []
         self.default_timeout = default_timeout
         self.next_event = None
@@ -36,6 +37,20 @@ class EventQueue(object):
         else:
             pass
 
-    def trigger(self):
-        pass
+    def check(self):
+        if self.next_event is not None and time.time() >= self.next_event:
+            self.resolve("Default")
+
+    def resolve(self, type, **kargs):
+        action, source, target = self.queue.pop()
+        if type == "Fail":
+            results = action.do_failure(self.game, source, target)
+        elif type == "Success":
+            results = action.do_success(self.game, source, target)
+        else:
+            results = action.do_default(self.game, source, target)
+
+        if results is not None:
+            self.resolve(results)
+
 

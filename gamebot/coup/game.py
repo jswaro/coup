@@ -54,7 +54,7 @@ class CoupGame(BaseGame):
         self.guessing = parameters.guessing  # Todo: To implement
 
         self.action_time = 30
-        self.event_queue = EventQueue(self.action_time)
+        self.event_queue = EventQueue(self, self.action_time)
         self.to_forfeit = []
 
     def populate_deck_and_actions(self):

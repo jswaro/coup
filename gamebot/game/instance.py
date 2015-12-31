@@ -41,5 +41,4 @@ class BaseInstance(object):
 
     def checkevents(self):
         for _, game in self.games.item():
-            if time.time() > game.event_queue.next_event:
-                game.event_queue.trigger()
+            game.event_queue.check()
